@@ -30,6 +30,26 @@ fn main() -> ExitCode {
     }
 }
 
+fn command_line(args: &[String]) -> String {
+    args.iter()
+        .map(|arg| quote(arg))
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+/// Shell-quote one word so the logged input can be pasted back.
+fn quote(arg: &str) -> String {
+    let plain = !arg.is_empty()
+        && arg
+            .chars()
+            .all(|c| c.is_alphanumeric() || "-_./:@%+=".contains(c));
+    if plain {
+        arg.to_string()
+    } else {
+        format!("'{}'", arg.replace('\'', "'\\''"))
+    }
+}
+
 fn run(args: &Args) -> Result<i32> {
     signals::install()?;
     let session = session::Session::resolve(args)?;
@@ -39,7 +59,7 @@ fn run(args: &Args) -> Result<i32> {
             .context("cannot read the current directory")?
             .display()
             .to_string(),
-        input: args.input.join(" "),
+        input: command_line(&args.input),
     };
     let mut ui = Ui::new(args.tool_lines, args.width);
     let system_prompt = prompt::system_prompt(args)?;
@@ -72,4 +92,24 @@ fn run(args: &Args) -> Result<i32> {
     let status = exec::run(history.as_deref(), &answer.command)?;
     session::write_status(history.as_deref(), status);
     Ok(status)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn quotes_only_what_needs_it() {
+        assert_eq!(quote("ls"), "ls");
+        assert_eq!(quote("a-b/c.d"), "a-b/c.d");
+        assert_eq!(quote("a b"), "'a b'");
+        assert_eq!(quote("it's"), "'it'\\''s'");
+        assert_eq!(quote(""), "''");
+    }
+
+    #[test]
+    fn joins_words() {
+        let words = ["cowsay".to_string(), "hello world".to_string()];
+        assert_eq!(command_line(&words), "cowsay 'hello world'");
+    }
 }
