@@ -110,3 +110,6 @@ rationale.
 nix-shell --run 'cargo test'
 nix-shell --run 'cargo clippy --all-targets'
 ```
+
+> [!NOTE]
+> This project was developed with LLM assistance.
