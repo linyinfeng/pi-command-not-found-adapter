@@ -23,14 +23,9 @@ pub enum Command {
     SystemPrompt(PromptArgs),
 }
 
-/// Where sessions live and which base prompts to use; shared by `run` and
-/// `system-prompt`.
+/// Which base prompts to use; shared by `run` and `system-prompt`.
 #[derive(Debug, Args)]
 pub struct PromptArgs {
-    /// Session id; defaults to a random UUID
-    #[arg(long, env = "COMMAND_NOT_FOUND_SESSION_ID")]
-    pub session_id: Option<String>,
-
     /// Replace the built-in base prompt; repeat for several files
     #[arg(
         long = "system-prompt-file",
@@ -38,10 +33,6 @@ pub struct PromptArgs {
         value_delimiter = ':'
     )]
     pub system_prompt_files: Vec<PathBuf>,
-
-    /// Directory holding the per-session directories
-    #[arg(long, env = "COMMAND_NOT_FOUND_SESSION_ROOT")]
-    pub session_root: Option<PathBuf>,
 }
 
 #[derive(Debug, Args)]
@@ -52,6 +43,14 @@ pub struct Run {
 
     #[command(flatten)]
     pub prompt: PromptArgs,
+
+    /// Session id; defaults to a random UUID
+    #[arg(long, env = "COMMAND_NOT_FOUND_SESSION_ID")]
+    pub session_id: Option<String>,
+
+    /// Directory holding the per-session directories
+    #[arg(long, env = "COMMAND_NOT_FOUND_SESSION_ROOT")]
+    pub session_root: Option<PathBuf>,
 
     /// pi executable to drive
     #[arg(long, env = "COMMAND_NOT_FOUND_PI", default_value = "pi")]
@@ -133,19 +132,21 @@ mod tests {
     }
 
     #[test]
-    fn system_prompt_shares_the_session_options() {
+    fn system_prompt_takes_the_base_prompts() {
         let cli = Cli::parse_from([
             "agent",
             "system-prompt",
-            "--session-id",
-            "abc",
             "--system-prompt-file",
             "a.md",
+            "--system-prompt-file",
+            "b.md",
         ]);
         let Command::SystemPrompt(args) = cli.command else {
             panic!("expected system-prompt");
         };
-        assert_eq!(args.session_id.as_deref(), Some("abc"));
-        assert_eq!(args.system_prompt_files, [PathBuf::from("a.md")]);
+        assert_eq!(
+            args.system_prompt_files,
+            [PathBuf::from("a.md"), PathBuf::from("b.md")]
+        );
     }
 }

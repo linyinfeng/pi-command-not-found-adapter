@@ -70,7 +70,7 @@ fn quote(arg: &str) -> String {
 
 fn run(args: &Run) -> Result<i32> {
     signals::install()?;
-    let session = session::Session::resolve(&args.prompt)?;
+    let session = session::Session::resolve(args)?;
     let command_line = command_line(&args.input);
     let input = Input {
         session_id: session.id.clone(),

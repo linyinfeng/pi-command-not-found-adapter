@@ -7,7 +7,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use anyhow::{Context, Result};
 use tracing::{debug, warn};
 
-use crate::cli::PromptArgs;
+use crate::cli::Run;
 
 const DIR_MODE: u32 = 0o700;
 const FILE_MODE: u32 = 0o600;
@@ -21,7 +21,7 @@ pub struct Session {
 }
 
 impl Session {
-    pub fn resolve(args: &PromptArgs) -> Result<Self> {
+    pub fn resolve(args: &Run) -> Result<Self> {
         let id = sanitize(args.session_id.as_deref().unwrap_or_default());
         let id = if id.is_empty() {
             let id = random_id();
