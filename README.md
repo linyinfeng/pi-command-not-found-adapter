@@ -214,7 +214,7 @@ was supplied, debug detail for the pi command and the history directory.
 | `ask.rs` | turn loop, retry loop, tool summaries |
 | `ui.rs` | rolling progress block, spinner, clipping |
 | `markdown.rs` | mcat rendering with a plain-text fallback |
-| `signals.rs` | SIGINT counting, TERM/HUP exit |
+| `signals.rs` | SIGINT remembered, TERM/HUP exit |
 
 See [docs/DESIGN.md](docs/DESIGN.md) for the crate selection and design
 rationale.
