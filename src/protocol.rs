@@ -8,7 +8,7 @@ pub struct Input {
     /// Session id of this shell conversation; also exported as
     /// COMMAND_NOT_FOUND_SESSION_ID.
     pub session_id: String,
-    /// Shell that will source the answer, e.g. bash, zsh, fish, sh.
+    /// Shell that will source the answer, e.g. bash, zsh, fish, nu.
     pub shell: String,
     /// Directory the command was typed in.
     pub cwd: Option<String>,
