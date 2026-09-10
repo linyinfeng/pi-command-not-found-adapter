@@ -6,7 +6,7 @@ use clap::{Args, Parser, Subcommand};
 #[command(
     name = "command-not-found-agent",
     version,
-    about = "Ask pi for a command when the shell cannot find one, then run it"
+    about = "Answer a command the shell could not find with code it can source"
 )]
 pub struct Cli {
     #[command(subcommand)]
@@ -15,7 +15,7 @@ pub struct Cli {
 
 #[derive(Debug, Subcommand)]
 pub enum Command {
-    /// Ask pi for a command and run it
+    /// Ask pi for the missing command and print the shell code that runs it
     Run(Box<Run>),
     /// Print a new session id, for a shell to export
     SessionId,
@@ -72,7 +72,7 @@ pub struct Run {
     )]
     pub pi_args: Vec<String>,
 
-    /// Shell that will source the answer: bash, zsh or fish
+    /// Shell that will source the answer, e.g. bash, zsh, fish, nu
     #[arg(long, env = "COMMAND_NOT_FOUND_SHELL", required = true)]
     pub shell: String,
 
