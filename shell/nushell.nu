@@ -7,11 +7,16 @@
 $env.COMMAND_NOT_FOUND_SESSION_ID = ($env.COMMAND_NOT_FOUND_SESSION_ID? | default (command-not-found-agent session-id))
 
 $env.config.hooks.command_not_found = { |name|
+  # History yields the raw line only and nushell has no shell-like tokenizer:
+  # `split row ' '` is all we have, so quoted arguments and repeated spaces
+  # reach the handler split apart. (ponytail: no parser here, the model
+  # reassembles from the words.)
   let line = (history | last | get command? | default $name)
   let result = (command-not-found-agent run --shell nu -- ...($line | split row ' ') | complete)
+  # `complete` captures stderr, so the note has to be printed explicitly;
+  # bash, zsh and fish pass it through.
+  print -e $result.stderr
   if $result.exit_code == 0 {
     nu -c $result.stdout
-  } else {
-    print -e $result.stderr
   }
 }
