@@ -81,7 +81,7 @@ fn run(args: &Run) -> Result<i32> {
         input: Some(command_line.clone()),
     };
     let mut ui = Ui::new(args.tool_lines, args.width);
-    let system_prompt = prompt::system_prompt(args)?;
+    let system_prompt = prompt::system_prompt(args, &session)?;
     let mut agent = pi::Agent::spawn(args, &session, &system_prompt)?;
     let answer = match agent.ask(&input, args.retries, &mut ui) {
         Ok(answer) => answer,

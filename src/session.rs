@@ -1,4 +1,3 @@
-use std::env;
 use std::fs::{self, DirBuilder, File, OpenOptions};
 use std::io::Write;
 use std::os::unix::fs::{DirBuilderExt, OpenOptionsExt, PermissionsExt};
@@ -15,6 +14,9 @@ const FILE_MODE: u32 = 0o600;
 
 pub struct Session {
     pub id: String,
+    /// `$XDG_STATE_HOME/pi-command-not-found-adapter`: pi's sessions and the
+    /// agent's notes live here.
+    pub state: PathBuf,
     pub dir: PathBuf,
 }
 
@@ -28,17 +30,20 @@ impl Session {
         } else {
             id
         };
-        let root = match &args.session_root {
-            Some(root) => root.clone(),
-            None => home()?.join(".pi/command-not-found/sessions"),
-        };
+        let state = dirs::state_dir()
+            .context("cannot determine the XDG state directory")?
+            .join("pi-command-not-found-adapter");
+        let root = args
+            .session_root
+            .clone()
+            .unwrap_or_else(|| state.join("sessions"));
         let dir = root.join(&id);
         DirBuilder::new()
             .recursive(true)
             .mode(DIR_MODE)
             .create(&dir)?;
         let _ = fs::set_permissions(&dir, fs::Permissions::from_mode(DIR_MODE));
-        Ok(Self { id, dir })
+        Ok(Self { id, state, dir })
     }
 
     pub fn session_file(&self) -> PathBuf {
@@ -106,12 +111,6 @@ pub fn random_id() -> String {
         .map(|d| d.as_nanos())
         .unwrap_or_default();
     format!("{nanos:x}")
-}
-
-fn home() -> Result<PathBuf> {
-    env::var_os("HOME")
-        .map(PathBuf::from)
-        .context("HOME is not set")
 }
 
 /// `2026-09-09T16-56-00-023Z`, matching the shell history naming.
