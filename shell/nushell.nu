@@ -7,6 +7,10 @@
 $env.COMMAND_NOT_FOUND_SESSION_ID = ($env.COMMAND_NOT_FOUND_SESSION_ID? | default (command-not-found-agent session-id))
 
 $env.config.hooks.command_not_found = { |name|
+  # Without the binary the hook would recurse on itself; stay quiet instead.
+  if (which command-not-found-agent | is-empty) {
+    return
+  }
   # History yields the raw line only and nushell has no shell-like tokenizer:
   # `split row ' '` is all we have, so quoted arguments and repeated spaces
   # reach the handler split apart. (ponytail: no parser here, the model
