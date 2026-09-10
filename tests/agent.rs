@@ -91,6 +91,21 @@ fn fails_after_exhausting_retries() {
 }
 
 #[test]
+fn omits_the_command_when_there_is_none() {
+    let dir = temp_dir("nocommand");
+    let pi = fake_pi(&dir, &[r#"{"markdown":"just a note"}"#]);
+    let output = run(&dir, &pi, &[]);
+    assert!(output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("just a note"), "{stderr}");
+    assert!(!stderr.contains('⚡'), "{stderr}");
+    let history = only_history(&dir);
+    assert_eq!(read(&history.join("command")), "");
+    assert_eq!(read(&history.join("status")), "0\n");
+    let _ = fs::remove_dir_all(&dir);
+}
+
+#[test]
 fn dry_run_prints_without_running() {
     let dir = temp_dir("dry");
     let pi = fake_pi(&dir, &[r#"{"markdown":"","command":"echo hello"}"#]);

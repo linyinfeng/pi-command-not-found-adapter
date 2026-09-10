@@ -53,13 +53,16 @@ fn quote(arg: &str) -> String {
 fn run(args: &Args) -> Result<i32> {
     signals::install()?;
     let session = session::Session::resolve(args)?;
+    let command_line = command_line(&args.input);
     let input = Input {
-        session_id: session.id.clone(),
-        cwd: env::current_dir()
-            .context("cannot read the current directory")?
-            .display()
-            .to_string(),
-        input: command_line(&args.input),
+        session_id: Some(session.id.clone()),
+        cwd: Some(
+            env::current_dir()
+                .context("cannot read the current directory")?
+                .display()
+                .to_string(),
+        ),
+        input: Some(command_line.clone()),
     };
     let mut ui = Ui::new(args.tool_lines, args.width);
     let system_prompt = prompt::system_prompt(args)?;
@@ -74,22 +77,24 @@ fn run(args: &Args) -> Result<i32> {
             bail!("{failure}");
         }
     };
-    markdown::render(&answer.markdown, args, &mut ui);
-    let history = session.start_history(&input.input, &answer.markdown, &answer.command);
-    if answer.command.trim().is_empty() {
+    let note = answer.markdown.unwrap_or_default();
+    let command = answer.command.unwrap_or_default();
+    markdown::render(&note, args, &mut ui);
+    let history = session.start_history(&command_line, &note, &command);
+    if command.trim().is_empty() {
         session::write_status(history.as_deref(), 0);
         return Ok(0);
     }
-    if !answer.markdown.trim().is_empty() {
+    if !note.trim().is_empty() {
         ui.line("");
     }
-    ui.announce(&answer.command);
+    ui.announce(&command);
     ui.rule();
     if args.dry_run {
         session::write_status(history.as_deref(), 0);
         return Ok(0);
     }
-    let status = exec::run(history.as_deref(), &answer.command)?;
+    let status = exec::run(history.as_deref(), &command)?;
     session::write_status(history.as_deref(), status);
     Ok(status)
 }

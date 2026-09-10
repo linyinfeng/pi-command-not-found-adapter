@@ -55,15 +55,17 @@ The user message is JSON:
 {"session_id": "…", "cwd": "/home/user", "input": "cowsay hi"}
 ```
 
-The agent must answer with exactly one JSON object:
+The agent answers with exactly one JSON object; either field may be
+omitted:
 
 ```json
 {"markdown": "short note for the user", "command": "shell command"}
 ```
 
-Both schemas are generated from the Rust types with `schemars` and appended
-to the system prompt, so the prompt cannot drift from the parser. When the
-answer does not parse, the adapter asks again **in the same session**
+Both schemas are generated from the Rust types with `schemars` — the doc
+comments become the field descriptions — and appended to the system
+prompt, so the prompt cannot drift from the parser. When the answer does
+not parse, the adapter asks again **in the same session**
 (`--retries` times) instead of starting over.
 
 ## System prompt

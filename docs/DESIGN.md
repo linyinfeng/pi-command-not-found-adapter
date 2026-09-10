@@ -86,11 +86,14 @@ for a two-field note.
   resumes it on every invocation, so a thread continues across commands.
   Without an id it reads a UUID from `/proc/sys/kernel/random/uuid`.
 - **Answers.** The model must reply with one JSON object; the schema is
-  generated from `protocol::Answer` and appended to the system prompt.
-  `parse_answer` scans the assistant text for JSON objects and keeps the
-  last one that deserializes. A missing or mistyped field is an error, and
-  the adapter asks again in the same session (`--retries`, default 2)
-  instead of starting a new conversation.
+  generated from `protocol::Answer` and appended to the system prompt, so
+  the field descriptions live with the types. Both fields are optional:
+  omit `command` when nothing should run. `parse_answer` scans the
+  assistant text for JSON objects and keeps the last one that carries at
+  least one of the two fields. Anything else — an unrelated object, a
+  mistyped field — is not an answer, and the adapter asks again in the
+  same session (`--retries`, default 2) instead of starting a new
+  conversation.
 - **Progress.** A braille spinner ticks at 10 Hz while the turn runs, `💭`
   accumulates on each thinking block, and tool calls appear as clipped
   `🔧name: argument` lines in a rolling block of `--tool-lines` (default
