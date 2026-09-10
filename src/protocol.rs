@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 /// What the shell passes to the agent.
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Serialize, JsonSchema)]
 pub struct Input {
     /// Session id of this shell conversation; also exported as
     /// COMMAND_NOT_FOUND_SESSION_ID.
@@ -21,7 +21,7 @@ pub struct Input {
 }
 
 /// What the agent must answer with; both fields are optional.
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
 pub struct Answer {
     /// Short note shown to the user, rendered as Markdown on
     /// stderr: plain Markdown only, no HTML, images or mermaid. Omit when
