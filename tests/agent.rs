@@ -5,12 +5,21 @@ use std::process::{Command, Output};
 
 const BIN: &str = env!("CARGO_BIN_EXE_command-not-found-agent");
 
-/// A fake `pi --mode rpc`: turn N answers with `turns[N]`.
-fn fake_pi(dir: &Path, turns: &[&str]) -> PathBuf {
+/// A fake `pi --mode rpc`: turn N answers with `turns[N]`. With `stale`,
+/// every prompt is preceded by a leftover `message_end` from an earlier
+/// conversation, as a resumed session might replay.
+fn fake_pi(dir: &Path, turns: &[&str], stale: bool) -> PathBuf {
     let path = dir.join("pi");
     let mut script = format!("#!{}\nturn=0\nwhile IFS= read -r line; do\n", shell());
     script.push_str("  case \"$line\" in *'\"prompt\"'*)\n");
     script.push_str("    turn=$((turn+1))\n");
+    if stale {
+        let stale = serde_json::json!({
+            "type": "message_end",
+            "message": {"role": "assistant", "content": [{"type": "text", "text": "{\"source\":\"echo stale\"}"}]},
+        });
+        script.push_str(&format!("    echo '{}'\n", stale));
+    }
     script.push_str("    echo '{\"type\":\"response\",\"command\":\"prompt\",\"success\":true}'\n");
     for (index, text) in turns.iter().enumerate() {
         let message = serde_json::json!({
@@ -64,6 +73,7 @@ fn retries_then_prints_the_source() {
             "I think you want cowsay.",
             r#"{"markdown":"note","source":"nix shell nixpkgs#cowsay -c cowsay hi"}"#,
         ],
+        false,
     );
     let output = run(&dir, &pi, &[]);
     assert!(output.status.success(), "{:?}", output);
@@ -88,7 +98,7 @@ fn retries_then_prints_the_source() {
 #[test]
 fn omits_the_source_when_there_is_none() {
     let dir = temp_dir("nosource");
-    let pi = fake_pi(&dir, &[r#"{"markdown":"just a note"}"#]);
+    let pi = fake_pi(&dir, &[r#"{"markdown":"just a note"}"#], false);
     let output = run(&dir, &pi, &[]);
     assert!(output.status.success());
     assert!(output.stdout.is_empty(), "{:?}", output.stdout);
@@ -103,12 +113,31 @@ fn omits_the_source_when_there_is_none() {
 #[test]
 fn fails_after_exhausting_retries() {
     let dir = temp_dir("fail");
-    let pi = fake_pi(&dir, &["nope", "still nope", "nope again"]);
+    let pi = fake_pi(&dir, &["nope", "still nope", "nope again"], false);
     let output = run(&dir, &pi, &[]);
     assert!(!output.status.success());
     assert_eq!(output.status.code(), Some(1));
     assert!(output.stdout.is_empty(), "{:?}", output.stdout);
     assert!(String::from_utf8_lossy(&output.stderr).contains("command-not-found:"));
+    let _ = fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn ignores_messages_before_the_prompt_is_acknowledged() {
+    // A stale answer from an earlier conversation must not become the verdict;
+    // with nothing else to parse the run has to fail instead.
+    let dir = temp_dir("stale");
+    let pi = fake_pi(&dir, &["nothing useful this turn"], true);
+    let output = run(&dir, &pi, &[]);
+    assert!(!output.status.success(), "{output:?}");
+    assert!(
+        String::from_utf8_lossy(&output.stdout).trim().is_empty(),
+        "{output:?}"
+    );
+    assert!(
+        !String::from_utf8_lossy(&output.stdout).contains("stale"),
+        "{output:?}"
+    );
     let _ = fs::remove_dir_all(&dir);
 }
 

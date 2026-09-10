@@ -159,7 +159,7 @@ fn translate(event: Incoming, stdin: &Arc<Mutex<ChildStdin>>) -> Option<Event> {
             error,
         } => {
             if success {
-                return None;
+                return Some(Event::Acked);
             }
             Some(Event::Failed(format!(
                 "pi rejected {command}: {}",

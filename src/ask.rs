@@ -80,6 +80,10 @@ impl Agent {
         self.send_prompt(message).map_err(TurnError::Failed)?;
         let deadline = Instant::now() + self.timeout();
         let mut turn = Turn::default();
+        // Nothing before the prompt's ack belongs to this turn: a resumed
+        // session may replay earlier messages, and they must not become the
+        // answer to the new command.
+        let mut started = false;
         loop {
             if signals::interrupted() {
                 // A busy event stream must not starve Ctrl-C: stop and let the
@@ -89,7 +93,7 @@ impl Agent {
             }
             let event = self.events().recv_timeout(TICK);
             match event {
-                Ok(Event::Settled) => return Ok(turn),
+                Ok(Event::Acked) => started = true,
                 Ok(Event::Closed) => {
                     return Err(TurnError::Failed(format!(
                         "pi exited early ({})",
@@ -97,6 +101,8 @@ impl Agent {
                     )));
                 }
                 Ok(Event::Failed(error)) => return Err(TurnError::Failed(error)),
+                Ok(_) if !started => continue,
+                Ok(Event::Settled) => return Ok(turn),
                 Ok(Event::Text(text)) => turn.texts.push(text),
                 Ok(Event::Error(error)) => turn.errors.push(error),
                 Ok(Event::Tool { name, args }) => ui.tool(&name, &summary(&args)),
@@ -146,9 +152,14 @@ pub fn summary(args: &Value) -> String {
 
 /// Events the reader thread forwards to the turn loop.
 pub enum Event {
+    /// `pi` acknowledged the prompt; events before this are not this turn's content.
+    Acked,
     Text(String),
     Error(String),
-    Tool { name: String, args: Value },
+    Tool {
+        name: String,
+        args: Value,
+    },
     Thinking,
     Settled,
     Failed(String),
