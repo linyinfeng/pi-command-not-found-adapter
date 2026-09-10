@@ -8,7 +8,7 @@ const BIN: &str = env!("CARGO_BIN_EXE_command-not-found-agent");
 /// A fake `pi --mode rpc`: turn N answers with `turns[N]`.
 fn fake_pi(dir: &Path, turns: &[&str]) -> PathBuf {
     let path = dir.join("pi");
-    let mut script = String::from("#!/bin/sh\nturn=0\nwhile IFS= read -r line; do\n");
+    let mut script = format!("#!{}\nturn=0\nwhile IFS= read -r line; do\n", shell());
     script.push_str("  case \"$line\" in *'\"prompt\"'*)\n");
     script.push_str("    turn=$((turn+1))\n");
     script.push_str("    echo '{\"type\":\"response\",\"command\":\"prompt\",\"success\":true}'\n");
@@ -38,8 +38,8 @@ fn run(dir: &Path, pi: &Path, extra: &[&str]) -> Output {
         .arg(pi)
         .arg("--session-root")
         .arg(dir.join("sessions"))
-        .arg("--mdcat")
-        .arg("/nonexistent-mdcat")
+        .arg("--mcat")
+        .arg("/nonexistent-mcat")
         .args(extra)
         .arg("--")
         .arg("cowsay")
@@ -131,4 +131,19 @@ fn only_history(dir: &Path) -> PathBuf {
 
 fn read(path: &Path) -> String {
     fs::read_to_string(path).unwrap_or_default()
+}
+
+/// The fake pi is a script, so the shebang must name a shell that exists —
+/// inside a Nix build sandbox there is no `/bin/sh`.
+fn shell() -> String {
+    let path = std::env::var_os("PATH").unwrap_or_default();
+    for dir in std::env::split_paths(&path) {
+        for name in ["bash", "sh"] {
+            let candidate = dir.join(name);
+            if candidate.is_file() {
+                return candidate.display().to_string();
+            }
+        }
+    }
+    "/bin/sh".into()
 }

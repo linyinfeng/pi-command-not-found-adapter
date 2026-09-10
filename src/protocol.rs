@@ -19,7 +19,7 @@ pub struct Input {
 /// What the agent must answer with; both fields are optional.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct Answer {
-    /// Short note shown to the user, rendered as Markdown by mdcat on
+    /// Short note shown to the user, rendered as Markdown on
     /// stderr: plain Markdown only, no HTML, images or mermaid. Omit when
     /// there is nothing worth explaining.
     pub markdown: Option<String>,

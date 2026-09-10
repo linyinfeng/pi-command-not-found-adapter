@@ -51,7 +51,7 @@ pub struct Run {
     #[arg(long, env = "COMMAND_NOT_FOUND_SESSION_ID")]
     pub session_id: Option<String>,
 
-    /// Shell that will source the answer
+    /// Shell that will source the answer: bash, zsh or fish
     #[arg(long, env = "COMMAND_NOT_FOUND_SHELL", required = true)]
     pub shell: String,
 
@@ -63,9 +63,9 @@ pub struct Run {
     #[arg(long, env = "COMMAND_NOT_FOUND_SESSION_ROOT")]
     pub session_root: Option<PathBuf>,
 
-    /// mdcat executable used to render the note
-    #[arg(long, env = "COMMAND_NOT_FOUND_MDCAT", default_value = "mdcat")]
-    pub mdcat: String,
+    /// mcat executable used to render the note
+    #[arg(long, env = "COMMAND_NOT_FOUND_MCAT", default_value = "mcat")]
+    pub mcat: String,
 
     /// Wrap width; defaults to the terminal width
     #[arg(long, env = "COMMAND_NOT_FOUND_WIDTH")]

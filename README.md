@@ -68,6 +68,30 @@ receives only the command name (the full line comes from history) and
 cannot change the caller's environment, so the answer runs in a child
 `nu`.
 
+## Installed files
+
+The Nix package drops the hooks in the standard places:
+
+| Path | Used by |
+| --- | --- |
+| `bin/command-not-found-agent` | `PATH` |
+| `share/pi-command-not-found-adapter/shell/{bash.sh,zsh.zsh,fish.fish,nushell.nu}` | explicit `source` |
+| `share/fish/vendor_conf.d/pi-command-not-found-adapter.fish` | fish, from `XDG_DATA_DIRS` |
+| `share/nushell/vendor/autoload/pi-command-not-found-adapter.nu` | nushell's interactive session, from `XDG_DATA_DIRS` |
+| `etc/profile.d/pi-command-not-found-adapter.sh` | bash and zsh login shells |
+
+`passthru.shell.{bash,zsh,fish,nushell}` names the explicit-sourcing paths
+for a NixOS or home-manager config:
+
+```nix
+programs.bash.interactiveShellInit = ''
+  source ${pkgs.pi-command-not-found-adapter.passthru.shell.bash}
+'';
+```
+
+`pi` and `mcat` are runtime dependencies and are taken from `PATH` (or
+`--pi`/`--mcat`); the package deliberately does not pin them.
+
 ### `run` options
 
 | Option | Environment | Default |
@@ -78,14 +102,20 @@ cannot change the caller's environment, so the answer runs in a child
 | `--pi-arg <ARG>` | `COMMAND_NOT_FOUND_PI_ARGS` | – |
 | `--session-id <ID>` | `COMMAND_NOT_FOUND_SESSION_ID` | random UUID |
 | `--shell <SHELL>` | `COMMAND_NOT_FOUND_SHELL` | required |
-| `--session-root <DIR>` | `COMMAND_NOT_FOUND_SESSION_ROOT` | `~/.pi/command-not-found/sessions` |
+| `--session-root <DIR>` | `COMMAND_NOT_FOUND_SESSION_ROOT` | `$XDG_STATE_HOME/pi-command-not-found-adapter/sessions` |
 | `--system-prompt-file <FILE>` | `COMMAND_NOT_FOUND_SYSTEM_PROMPT_FILE` | built-in |
-| `--mdcat <PATH>` | `COMMAND_NOT_FOUND_MDCAT` | `mdcat` |
+| `--mcat <PATH>` | `COMMAND_NOT_FOUND_MCAT` | `mcat` |
 | `--width <COLUMNS>` | `COMMAND_NOT_FOUND_WIDTH` | terminal width |
 | `--retries <N>` | `COMMAND_NOT_FOUND_RETRIES` | `2` |
 | `--tool-lines <N>` | `COMMAND_NOT_FOUND_TOOL_LINES` | `5` |
 | `--timeout <SECONDS>` | `COMMAND_NOT_FOUND_TIMEOUT` | `600` |
 | `--trace <FILE>` | `COMMAND_NOT_FOUND_TRACE` | – |
+
+On a light terminal the note is rendered with mcat's light theme: the
+adapter asks the terminal for its background (OSC 11), and passes
+`--theme makurai-light` when it is light. When `MCAT_THEME` is already set
+the terminal is not queried at all, and an unqueryable terminal just gets
+mcat's default theme.
 
 ## Answer protocol
 
@@ -129,10 +159,10 @@ Only part 1 is replaceable; 2 and 3 must stay in sync with the adapter.
 
 ## Logging
 
-Per session: `~/.pi/command-not-found/sessions/<session_id>/session.jsonl`
-(pi's own session, resumed on every invocation). Per invocation:
-`history/<UTC time>/{input,markdown,source}`. Directories are `0700`,
-files `0600`.
+Per session: `$XDG_STATE_HOME/pi-command-not-found-adapter/sessions/<session_id>/`
+(`session.jsonl`, pi's own session, resumed on every invocation). Per
+invocation: `history/<UTC time>/{input,markdown,source}`. Directories are
+`0700`, files `0600`.
 
 Diagnostics go through `tracing` to stderr — a warning when no session id
 was supplied, debug detail for the pi command and the history directory.
@@ -150,7 +180,7 @@ was supplied, debug detail for the pi command and the history directory.
 | `pi.rs` | `pi --mode rpc` process, event decoding |
 | `ask.rs` | turn loop, retry loop, tool summaries |
 | `ui.rs` | rolling progress block, spinner, clipping |
-| `markdown.rs` | mdcat rendering with a plain-text fallback |
+| `markdown.rs` | mcat rendering with a plain-text fallback |
 | `signals.rs` | SIGINT counting, TERM/HUP exit |
 
 See [docs/DESIGN.md](docs/DESIGN.md) for the crate selection and design
@@ -159,8 +189,9 @@ rationale.
 ## Development
 
 ```sh
-nix-shell --run 'cargo test'
-nix-shell --run 'cargo clippy --all-targets'
+nix develop -c cargo test
+nix develop -c cargo clippy --all-targets
+nix build .#          # builds the package and runs the tests in the sandbox
 ```
 
 > [!NOTE]
