@@ -122,8 +122,8 @@ pipe here), `termbg` hardcodes stdio and pulls in an async runtime, and
   and resumes it on every invocation, so a thread continues across
   commands. Without an id it warns and reads a UUID from
   `/proc/sys/kernel/random/uuid`. The state directory also holds the
-  agent's notes, and both paths are substituted into the system prompt, so
-  the agent never sees a stale location.
+  agent's notes; both paths travel in the input, so the system prompt is
+  identical for every invocation.
 - **Answers.** The model must reply with one JSON object; the schema is
   generated from `protocol::Answer` and appended to the system prompt, so
   the field descriptions live with the types. Both fields are optional:

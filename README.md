@@ -1,5 +1,8 @@
 # pi-command-not-found-adapter
 
+> [!NOTE]
+> This project was developed with LLM assistance.
+
 A shell `command-not-found` handler that asks
 [pi](https://github.com/earendil-works/pi-mono) for shell code, shows the
 agent's work, and hands the code back to the shell to source.
@@ -23,25 +26,20 @@ code runs in the user's own shell, not in a subshell.
 ```sh
 command-not-found-agent run [OPTIONS] -- <command> [args...]
 command-not-found-agent session-id
+command-not-found-agent system-prompt [OPTIONS]
 ```
 
 `run` is the handler: it takes the command line after `--` (options come
-before it) and prints the answer's `source` on stdout. A shell wraps it
-like this:
-
-```sh
-command_not_found_handle() {
-  local code status
-  code=$("$COMMAND_NOT_FOUND_AGENT" run --shell bash -- "$@") || return $?
-  eval "$code"
-}
-```
-
-Standalone:
+before it) and prints the answer's `source` on stdout. The shell hooks in
+`shell/` call it, for example:
 
 ```sh
 command-not-found-agent run --shell bash --model anthropic/claude-haiku-4-5 -- cowsay hi
 ```
+
+`system-prompt` prints exactly what `run` sends to pi — the base prompts,
+the adapter's session and notes context and the generated schemas — which
+is what makes prompt changes testable by hand.
 
 `session-id` prints a fresh UUID for a shell to export once at startup:
 
@@ -148,7 +146,9 @@ The user message is JSON:
   "session_id": "…",
   "shell": "bash",
   "cwd": "/home/user",
-  "input": "cowsay hi"
+  "input": "cowsay hi",
+  "session_file": "…/sessions/…/session.jsonl",
+  "state_dir": "…/pi-command-not-found-adapter"
 }
 ```
 
@@ -174,11 +174,14 @@ The prompt is assembled from three parts:
 
 1. the base prompts — `prompts/base.md` by default, or the files given to
    `--system-prompt-file` concatenated in order;
-2. the adapter-owned context — `prompts/history.md`: where the session and
-   the history directory live, and how to keep notes there;
+2. the adapter-owned context — `prompts/history.md`: what the session file
+   and the history directory are, and how to keep notes;
 3. the generated input and answer schemas.
 
 Only part 1 is replaceable; 2 and 3 must stay in sync with the adapter.
+Nothing that varies per invocation is in here: the session file and state
+paths travel in the input instead, so the system prompt is byte-identical
+across runs and `system-prompt` can be diffed against a change.
 
 ## Logging
 
@@ -215,7 +218,11 @@ rationale.
 nix develop -c cargo test
 nix develop -c cargo clippy --all-targets
 nix build .#          # builds the package and runs the tests in the sandbox
+dev/pi.sh             # interactive pi with the handler's prompt and session
 ```
 
-> [!NOTE]
-> This project was developed with LLM assistance.
+`dev/pi.sh` enters an interactive pi configured like the handler, so a
+prompt change can be tried by hand: it reuses the same system prompt,
+session and notes directory, and accepts pi's own options. Set
+`COMMAND_NOT_FOUND_SESSION_ID` for another session and
+`COMMAND_NOT_FOUND_SYSTEM_PROMPT_FILE` for other base prompts.

@@ -34,6 +34,9 @@ fn main() -> ExitCode {
             println!("{}", session::random_id());
             Ok(0)
         }
+        cli::Command::SystemPrompt(args) => prompt::system_prompt(&args)
+            .map(|prompt| println!("{prompt}"))
+            .map(|()| 0),
         cli::Command::Run(args) => run(&args),
     };
     match result {
@@ -67,7 +70,7 @@ fn quote(arg: &str) -> String {
 
 fn run(args: &Run) -> Result<i32> {
     signals::install()?;
-    let session = session::Session::resolve(args)?;
+    let session = session::Session::resolve(&args.prompt)?;
     let command_line = command_line(&args.input);
     let input = Input {
         session_id: session.id.clone(),
@@ -79,9 +82,11 @@ fn run(args: &Run) -> Result<i32> {
                 .to_string(),
         ),
         input: Some(command_line.clone()),
+        session_file: session.session_file().display().to_string(),
+        state_dir: session.state.display().to_string(),
     };
     let mut ui = Ui::new(args.tool_lines, args.width);
-    let system_prompt = prompt::system_prompt(args, &session)?;
+    let system_prompt = prompt::system_prompt(&args.prompt)?;
     let mut agent = pi::Agent::spawn(args, &session, &system_prompt)?;
     let answer = match agent.ask(&input, args.retries, &mut ui) {
         Ok(answer) => answer,

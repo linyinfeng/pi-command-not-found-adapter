@@ -14,6 +14,10 @@ pub struct Input {
     pub cwd: Option<String>,
     /// Command line the user typed.
     pub input: Option<String>,
+    /// File holding this conversation's pi session.
+    pub session_file: String,
+    /// Directory for notes that outlive one invocation.
+    pub state_dir: String,
 }
 
 /// What the agent must answer with; both fields are optional.
