@@ -3,7 +3,7 @@ use std::fs;
 use anyhow::{Context, Result};
 use schemars::{JsonSchema, schema_for};
 
-use crate::cli::Args;
+use crate::cli::Run;
 use crate::protocol::{Answer, Input};
 
 /// Replaced by `--system-prompt-file` when given.
@@ -16,7 +16,7 @@ fn schema<T: JsonSchema>() -> Result<String> {
 }
 
 /// Base prompt, then the adapter-owned context, then the generated schemas.
-pub fn system_prompt(args: &Args) -> Result<String> {
+pub fn system_prompt(args: &Run) -> Result<String> {
     let base = match &args.system_prompt_file {
         Some(path) => {
             fs::read_to_string(path).with_context(|| format!("cannot read {}", path.display()))?
@@ -44,10 +44,15 @@ pub fn retry_prompt(reason: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::cli::{Cli, Command};
     use clap::Parser;
 
-    fn args() -> Args {
-        Args::parse_from(["agent", "ls"])
+    fn args() -> Run {
+        let cli = Cli::parse_from(["agent", "run", "--", "ls"]);
+        let Command::Run(run) = cli.command else {
+            panic!("expected run");
+        };
+        *run
     }
 
     #[test]

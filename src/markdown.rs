@@ -2,11 +2,11 @@ use std::io::Write;
 use std::process::{Command, Stdio};
 use std::thread;
 
-use crate::cli::Args;
+use crate::cli::Run;
 use crate::ui::{Ui, printable};
 
 /// Render the note with mdcat, falling back to the raw text.
-pub fn render(text: &str, args: &Args, ui: &mut Ui) {
+pub fn render(text: &str, args: &Run, ui: &mut Ui) {
     if text.trim().is_empty() {
         return;
     }
@@ -17,7 +17,7 @@ pub fn render(text: &str, args: &Args, ui: &mut Ui) {
     ui.line(printable(text).trim_end());
 }
 
-fn mdcat(text: &str, args: &Args, ui: &Ui) -> bool {
+fn mdcat(text: &str, args: &Run, ui: &Ui) -> bool {
     let mut command = Command::new(&args.mdcat);
     command
         .arg("--columns")

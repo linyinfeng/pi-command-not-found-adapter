@@ -12,7 +12,7 @@ use serde_json::{Value, json};
 use tracing::debug;
 
 use crate::ask::Event;
-use crate::cli::Args;
+use crate::cli::Run;
 use crate::session::Session;
 
 /// A running `pi --mode rpc` process.
@@ -25,7 +25,7 @@ pub struct Agent {
 }
 
 impl Agent {
-    pub fn spawn(args: &Args, session: &Session, system_prompt: &str) -> Result<Self> {
+    pub fn spawn(args: &Run, session: &Session, system_prompt: &str) -> Result<Self> {
         let mut command = Command::new(&args.pi);
         command
             .arg("--mode")

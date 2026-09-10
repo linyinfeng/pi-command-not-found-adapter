@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use clap::Parser;
+use clap::{Args, Parser, Subcommand};
 
 #[derive(Debug, Parser)]
 #[command(
@@ -8,9 +8,23 @@ use clap::Parser;
     version,
     about = "Ask pi for a command when the shell cannot find one, then run it"
 )]
-pub struct Args {
-    /// The command line the user typed
-    #[arg(trailing_var_arg = true, allow_hyphen_values = true, num_args = 1..)]
+pub struct Cli {
+    #[command(subcommand)]
+    pub command: Command,
+}
+
+#[derive(Debug, Subcommand)]
+pub enum Command {
+    /// Ask pi for a command and run it
+    Run(Box<Run>),
+    /// Print a new session id, for a shell to export
+    SessionId,
+}
+
+#[derive(Debug, Args)]
+pub struct Run {
+    /// The command line the user typed, after `--`
+    #[arg(last = true, required = true, num_args = 1.., allow_hyphen_values = true)]
     pub input: Vec<String>,
 
     /// pi executable to drive
@@ -72,4 +86,29 @@ pub struct Args {
     /// Append every raw pi protocol line to this file
     #[arg(long, env = "COMMAND_NOT_FOUND_TRACE")]
     pub trace: Option<PathBuf>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn run_takes_the_command_after_a_double_dash() {
+        let cli = Cli::parse_from(["agent", "run", "--", "cowsay", "--help"]);
+        let Command::Run(run) = cli.command else {
+            panic!("expected run");
+        };
+        assert_eq!(run.input, ["cowsay", "--help"]);
+    }
+
+    #[test]
+    fn run_rejects_the_command_without_the_separator() {
+        assert!(Cli::try_parse_from(["agent", "run", "cowsay"]).is_err());
+    }
+
+    #[test]
+    fn session_id_takes_no_arguments() {
+        let cli = Cli::parse_from(["agent", "session-id"]);
+        assert!(matches!(cli.command, Command::SessionId));
+    }
 }

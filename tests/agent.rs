@@ -32,6 +32,7 @@ fn fake_pi(dir: &Path, turns: &[&str]) -> PathBuf {
 
 fn run(dir: &Path, pi: &Path, extra: &[&str]) -> Output {
     Command::new(BIN)
+        .arg("run")
         .arg("--pi")
         .arg(pi)
         .arg("--session-root")
@@ -39,6 +40,7 @@ fn run(dir: &Path, pi: &Path, extra: &[&str]) -> Output {
         .arg("--mdcat")
         .arg("/nonexistent-mdcat")
         .args(extra)
+        .arg("--")
         .arg("cowsay")
         .arg("hi")
         .output()

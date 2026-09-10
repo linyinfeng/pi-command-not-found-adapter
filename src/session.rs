@@ -8,7 +8,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use anyhow::{Context, Result};
 use tracing::{debug, warn};
 
-use crate::cli::Args;
+use crate::cli::Run;
 
 const DIR_MODE: u32 = 0o700;
 const FILE_MODE: u32 = 0o600;
@@ -19,7 +19,7 @@ pub struct Session {
 }
 
 impl Session {
-    pub fn resolve(args: &Args) -> Result<Self> {
+    pub fn resolve(args: &Run) -> Result<Self> {
         let id = sanitize(args.session_id.as_deref().unwrap_or_default());
         let id = if id.is_empty() {
             let id = random_id();
@@ -107,7 +107,7 @@ fn sanitize(raw: &str) -> String {
         .collect()
 }
 
-fn random_id() -> String {
+pub fn random_id() -> String {
     if let Ok(uuid) = fs::read_to_string("/proc/sys/kernel/random/uuid") {
         let uuid = uuid.trim();
         if !uuid.is_empty() {

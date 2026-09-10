@@ -15,7 +15,7 @@ use std::process::ExitCode;
 use anyhow::{Context, Result, bail};
 use clap::Parser;
 
-use crate::cli::Args;
+use crate::cli::{Cli, Run};
 use crate::protocol::Input;
 use crate::ui::Ui;
 
@@ -29,8 +29,14 @@ fn main() -> ExitCode {
         .without_time()
         .with_target(false)
         .init();
-    let args = Args::parse();
-    match run(&args) {
+    let result = match Cli::parse().command {
+        cli::Command::SessionId => {
+            println!("{}", session::random_id());
+            Ok(0)
+        }
+        cli::Command::Run(args) => run(&args),
+    };
+    match result {
         Ok(status) => ExitCode::from(status.clamp(0, 255) as u8),
         Err(error) => {
             eprintln!("command-not-found: {error:#}");
@@ -59,7 +65,7 @@ fn quote(arg: &str) -> String {
     }
 }
 
-fn run(args: &Args) -> Result<i32> {
+fn run(args: &Run) -> Result<i32> {
     signals::install()?;
     let session = session::Session::resolve(args)?;
     let command_line = command_line(&args.input);

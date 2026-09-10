@@ -20,15 +20,25 @@ the resulting command with `bash -c`, forwarding its exit status.
 ## Usage
 
 ```sh
-command-not-found-agent [OPTIONS] <command> [args...]
+command-not-found-agent run [OPTIONS] -- <command> [args...]
+command-not-found-agent session-id
 ```
 
-Everything after the first positional argument is the command line the user
-typed, so put options first:
+`run` is the handler: it takes the command line after `--` (options come
+before it), which is what a shell calls as
+`command-not-found-agent run -- "$@"`.
 
 ```sh
-command-not-found-agent --model anthropic/claude-haiku-4-5 cowsay hi
+command-not-found-agent run --model anthropic/claude-haiku-4-5 -- cowsay hi
 ```
+
+`session-id` prints a fresh UUID for a shell to export once at startup:
+
+```sh
+export COMMAND_NOT_FOUND_SESSION_ID="$(command-not-found-agent session-id)"
+```
+
+### `run` options
 
 | Option | Environment | Default |
 | --- | --- | --- |
@@ -95,8 +105,8 @@ was supplied, debug detail for the pi command and the history directory.
 
 | Module | Role |
 | --- | --- |
-| `main.rs` | wiring and exit status |
-| `cli.rs` | clap configuration (flags + env) |
+| `main.rs` | subcommand dispatch, wiring and exit status |
+| `cli.rs` | clap commands, flags and env |
 | `session.rs` | session id, paths, history files |
 | `protocol.rs` | `Input`/`Answer` types, schema, answer parsing |
 | `prompt.rs` | prompt assembly and the retry message |

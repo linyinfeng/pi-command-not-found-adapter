@@ -82,7 +82,8 @@ for a two-field note.
 ## Behaviour
 
 - **Sessions.** One conversation per shell: the shell init exports
-  `COMMAND_NOT_FOUND_SESSION_ID`, the adapter keeps pi's session at
+  `COMMAND_NOT_FOUND_SESSION_ID` (which `command-not-found-agent session-id`
+  can produce), the adapter keeps pi's session at
   `~/.pi/command-not-found/sessions/<session_id>/session.jsonl` and
   resumes it on every invocation, so a thread continues across commands.
   Without an id it warns and reads a UUID from
