@@ -9,7 +9,7 @@ use std::time::Duration;
 use anyhow::{Context, Result};
 use serde::Deserialize;
 use serde_json::{Value, json};
-use tracing::debug;
+use tracing::{debug, warn};
 
 use crate::ask::Event;
 use crate::cli::Run;
@@ -123,11 +123,17 @@ fn spawn_reader(
 ) -> JoinHandle<()> {
     thread::spawn(move || {
         let mut trace = trace.and_then(|path| {
-            std::fs::OpenOptions::new()
+            match std::fs::OpenOptions::new()
                 .create(true)
                 .append(true)
-                .open(path)
-                .ok()
+                .open(&path)
+            {
+                Ok(file) => Some(file),
+                Err(error) => {
+                    warn!("cannot append to {}: {error}", path.display());
+                    None
+                }
+            }
         });
         for line in BufReader::new(stdout).lines() {
             let Ok(line) = line else { break };
