@@ -55,9 +55,13 @@ pub struct Run {
     #[arg(long, env = "COMMAND_NOT_FOUND_SHELL", required = true)]
     pub shell: String,
 
-    /// Replace the built-in base system prompt with this file
-    #[arg(long, env = "COMMAND_NOT_FOUND_SYSTEM_PROMPT_FILE")]
-    pub system_prompt_file: Option<PathBuf>,
+    /// Replace the built-in base prompt; repeat for several files
+    #[arg(
+        long = "system-prompt-file",
+        env = "COMMAND_NOT_FOUND_SYSTEM_PROMPT_FILE",
+        value_delimiter = ':'
+    )]
+    pub system_prompt_files: Vec<PathBuf>,
 
     /// Directory holding the per-session directories
     #[arg(long, env = "COMMAND_NOT_FOUND_SESSION_ROOT")]

@@ -96,12 +96,20 @@ programs.bash.interactiveShellInit = ''
 The built-in prompt (`prompts/base.md`) is generic; `prompts/nix.md` is a
 full replacement written for a NixOS machine — it teaches the agent to find
 an attribute with `nix-locate`, to check it with `nix eval` and to answer
-with `nix shell nixpkgs#<attr> -c …`. Point `--system-prompt-file` at it
-to use it:
+with `nix shell nixpkgs#<attr> -c …`. `--system-prompt-file` is repeatable
+and the files are concatenated in order, so prompts can be composed; one
+file replaces the built-in base, and listing
+`passthru.prompts.base` first keeps the generic rules:
 
 ```sh
-command-not-found-agent run --system-prompt-file …/prompts/nix.md --shell bash -- cowsay hi
+command-not-found-agent run \
+  --system-prompt-file …/prompts/nix.md \
+  --system-prompt-file ~/.config/command-not-found/local.md \
+  --shell bash -- cowsay hi
 ```
+
+`COMMAND_NOT_FOUND_SYSTEM_PROMPT_FILE` takes the same list separated by
+colons, like `PATH`.
 
 `pi` and `mcat` are runtime dependencies and are taken from `PATH` (or
 `--pi`/`--mcat`); the package deliberately does not pin them.
@@ -117,7 +125,7 @@ command-not-found-agent run --system-prompt-file …/prompts/nix.md --shell bash
 | `--session-id <ID>` | `COMMAND_NOT_FOUND_SESSION_ID` | random UUID |
 | `--shell <SHELL>` | `COMMAND_NOT_FOUND_SHELL` | required |
 | `--session-root <DIR>` | `COMMAND_NOT_FOUND_SESSION_ROOT` | `$XDG_STATE_HOME/pi-command-not-found-adapter/sessions` |
-| `--system-prompt-file <FILE>` | `COMMAND_NOT_FOUND_SYSTEM_PROMPT_FILE` | built-in |
+| `--system-prompt-file <FILE>` | `COMMAND_NOT_FOUND_SYSTEM_PROMPT_FILE` | built-in `base.md` |
 | `--mcat <PATH>` | `COMMAND_NOT_FOUND_MCAT` | `mcat` |
 | `--width <COLUMNS>` | `COMMAND_NOT_FOUND_WIDTH` | terminal width |
 | `--retries <N>` | `COMMAND_NOT_FOUND_RETRIES` | `2` |
@@ -164,7 +172,8 @@ not parse, the adapter asks again **in the same session**
 
 The prompt is assembled from three parts:
 
-1. the base prompt — `prompts/base.md`, replaced by `--system-prompt-file`;
+1. the base prompts — `prompts/base.md` by default, or the files given to
+   `--system-prompt-file` concatenated in order;
 2. the adapter-owned context — `prompts/history.md`: where the session and
    the history directory live, and how to keep notes there;
 3. the generated input and answer schemas.

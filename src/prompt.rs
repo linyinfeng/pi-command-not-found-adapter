@@ -7,7 +7,7 @@ use crate::cli::Run;
 use crate::protocol::{Answer, Input};
 use crate::session::Session;
 
-/// Replaced by `--system-prompt-file` when given.
+/// Used when no `--system-prompt-file` is given.
 const BASE: &str = include_str!("../prompts/base.md");
 /// Maintained here because it describes the adapter's own state.
 const HISTORY: &str = include_str!("../prompts/history.md");
@@ -16,14 +16,10 @@ fn schema<T: JsonSchema>() -> Result<String> {
     Ok(serde_json::to_string_pretty(&schema_for!(T))?)
 }
 
-/// Base prompt, then the adapter-owned context, then the generated schemas.
+/// The base prompts in the order given (or the built-in one), then the
+/// adapter-owned context, then the generated schemas.
 pub fn system_prompt(args: &Run, session: &Session) -> Result<String> {
-    let base = match &args.system_prompt_file {
-        Some(path) => {
-            fs::read_to_string(path).with_context(|| format!("cannot read {}", path.display()))?
-        }
-        None => BASE.to_string(),
-    };
+    let base = base_prompt(args)?;
     let history = HISTORY
         .replace(
             "{session_file}",
@@ -33,10 +29,22 @@ pub fn system_prompt(args: &Run, session: &Session) -> Result<String> {
     let input = schema::<Input>()?;
     let answer = schema::<Answer>()?;
     Ok(format!(
-        "{}\n{history}\n## Input schema\n\n```json\n{input}\n```\n\n\
-         ## Answer schema\n\n```json\n{answer}\n```\n",
-        base.trim_end()
+        "{base}\n{history}\n## Input schema\n\n```json\n{input}\n```\n\n\
+         ## Answer schema\n\n```json\n{answer}\n```\n"
     ))
+}
+
+fn base_prompt(args: &Run) -> Result<String> {
+    if args.system_prompt_files.is_empty() {
+        return Ok(BASE.trim_end().to_string());
+    }
+    let mut parts = Vec::new();
+    for path in &args.system_prompt_files {
+        let text =
+            fs::read_to_string(path).with_context(|| format!("cannot read {}", path.display()))?;
+        parts.push(text.trim_end().to_string());
+    }
+    Ok(parts.join("\n\n"))
 }
 
 /// Sent as the next user message when the previous answer did not parse.
@@ -94,15 +102,40 @@ mod tests {
 
     #[test]
     fn external_prompt_replaces_the_base_only() {
-        let path = std::env::temp_dir().join(format!("prompt-test-{}", std::process::id()));
-        fs::write(&path, "# custom agent\n").unwrap();
+        let path = temp("one", "# custom agent\n");
         let mut args = args();
-        args.system_prompt_file = Some(path.clone());
+        args.system_prompt_files = vec![path.clone()];
         let prompt = system_prompt(&args, &session("/state")).unwrap();
         let _ = fs::remove_file(&path);
         assert!(prompt.starts_with("# custom agent"));
         assert!(prompt.contains("## Sessions"));
         assert!(!prompt.contains("The shell's command-not-found handler"));
+    }
+
+    #[test]
+    fn several_prompts_are_concatenated_in_order() {
+        let first = temp("first", "# first\n");
+        let second = temp("second", "# second\n");
+        let mut args = args();
+        args.system_prompt_files = vec![first.clone(), second.clone()];
+        let prompt = system_prompt(&args, &session("/state")).unwrap();
+        let _ = fs::remove_file(&first);
+        let _ = fs::remove_file(&second);
+        assert!(prompt.starts_with("# first\n\n# second"), "{prompt}");
+        assert!(!prompt.contains("The shell's command-not-found handler"));
+    }
+
+    #[test]
+    fn a_missing_prompt_file_is_an_error() {
+        let mut args = args();
+        args.system_prompt_files = vec!["/nonexistent-prompt".into()];
+        assert!(system_prompt(&args, &session("/state")).is_err());
+    }
+
+    fn temp(name: &str, content: &str) -> std::path::PathBuf {
+        let path = std::env::temp_dir().join(format!("prompt-test-{}-{name}", std::process::id()));
+        fs::write(&path, content).unwrap();
+        path
     }
 
     #[test]
