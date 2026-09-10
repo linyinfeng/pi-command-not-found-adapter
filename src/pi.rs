@@ -9,6 +9,7 @@ use std::time::Duration;
 use anyhow::{Context, Result};
 use serde::Deserialize;
 use serde_json::{Value, json};
+use tracing::debug;
 
 use crate::ask::Event;
 use crate::cli::Args;
@@ -41,6 +42,12 @@ impl Agent {
             command.arg("--thinking").arg(thinking);
         }
         command.args(&args.pi_args);
+        debug!(
+            "{} --mode rpc --session {} (model {:?})",
+            args.pi,
+            session.session_file().display(),
+            args.model
+        );
         let mut child = command
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())

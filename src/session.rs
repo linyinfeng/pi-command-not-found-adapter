@@ -6,6 +6,7 @@ use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use anyhow::{Context, Result};
+use tracing::{debug, warn};
 
 use crate::cli::Args;
 
@@ -20,7 +21,13 @@ pub struct Session {
 impl Session {
     pub fn resolve(args: &Args) -> Result<Self> {
         let id = sanitize(args.session_id.as_deref().unwrap_or_default());
-        let id = if id.is_empty() { random_id() } else { id };
+        let id = if id.is_empty() {
+            let id = random_id();
+            warn!("no session id given; using {id}");
+            id
+        } else {
+            id
+        };
         let root = match &args.session_root {
             Some(root) => root.clone(),
             None => home()?.join(".pi/command-not-found/sessions"),
@@ -60,6 +67,7 @@ impl Session {
         ] {
             write_file(&dir.join(name), content);
         }
+        debug!("history {}", dir.display());
         Some(dir)
     }
 }

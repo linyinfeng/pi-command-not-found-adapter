@@ -35,6 +35,7 @@ Versions and download figures from crates.io, September 2026.
 | --- | --- | --- | --- |
 | CLI + env | `clap` (derive, env) | 4.6 | `#[arg(long, env = …)]` gives every option an environment variable; the standard choice |
 | errors | `anyhow` | 1.0 | one error type for a binary; context added at each boundary |
+| logs | `tracing` + `tracing-subscriber` | 0.1 / 0.3 | warnings and debug diagnostics on stderr, `RUST_LOG` filter |
 | JSON | `serde` + `serde_json` | 1.0 | `Input`/`Answer` and pi's events |
 | schema | `schemars` | 1.2 | derives JSON Schema from the same structs that deserialize the answer, so prompt and parser cannot drift |
 | terminal | `console` | 0.16 | one crate for TTY detection, terminal size, `move_cursor_up`, `clear_last_lines`, `clear_line`, styling, and East-Asian-aware `measure_text_width` |
@@ -84,7 +85,8 @@ for a two-field note.
   `COMMAND_NOT_FOUND_SESSION_ID`, the adapter keeps pi's session at
   `~/.pi/command-not-found/sessions/<session_id>/session.jsonl` and
   resumes it on every invocation, so a thread continues across commands.
-  Without an id it reads a UUID from `/proc/sys/kernel/random/uuid`.
+  Without an id it warns and reads a UUID from
+  `/proc/sys/kernel/random/uuid`.
 - **Answers.** The model must reply with one JSON object; the schema is
   generated from `protocol::Answer` and appended to the system prompt, so
   the field descriptions live with the types. Both fields are optional:

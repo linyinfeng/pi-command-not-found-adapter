@@ -87,6 +87,10 @@ Per session: `~/.pi/command-not-found/sessions/<session_id>/session.jsonl`
 command's output is tee'd to the terminal while it runs. Directories are
 `0700`, files `0600`, `status` stays empty if the run was interrupted.
 
+Diagnostics go through `tracing` to stderr — a warning when no session id
+was supplied, debug detail for the pi command and the history directory.
+`RUST_LOG` selects the level (default `warn`).
+
 ## Layout
 
 | Module | Role |

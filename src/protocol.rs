@@ -7,7 +7,7 @@ use serde_json::Value;
 pub struct Input {
     /// Session id of this shell conversation; also exported as
     /// COMMAND_NOT_FOUND_SESSION_ID.
-    pub session_id: Option<String>,
+    pub session_id: String,
     /// Directory the command was typed in.
     pub cwd: Option<String>,
     /// Command line the user typed.

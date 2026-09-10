@@ -20,6 +20,15 @@ use crate::protocol::Input;
 use crate::ui::Ui;
 
 fn main() -> ExitCode {
+    tracing_subscriber::fmt()
+        .with_env_filter(
+            tracing_subscriber::EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("warn")),
+        )
+        .with_writer(std::io::stderr)
+        .without_time()
+        .with_target(false)
+        .init();
     let args = Args::parse();
     match run(&args) {
         Ok(status) => ExitCode::from(status.clamp(0, 255) as u8),
@@ -55,7 +64,7 @@ fn run(args: &Args) -> Result<i32> {
     let session = session::Session::resolve(args)?;
     let command_line = command_line(&args.input);
     let input = Input {
-        session_id: Some(session.id.clone()),
+        session_id: session.id.clone(),
         cwd: Some(
             env::current_dir()
                 .context("cannot read the current directory")?
