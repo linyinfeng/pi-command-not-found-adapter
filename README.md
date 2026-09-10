@@ -51,15 +51,16 @@ export COMMAND_NOT_FOUND_SESSION_ID="$(command-not-found-agent session-id)"
 
 ## Shell integration
 
-`examples/` holds a ready-made hook per shell: it exports the session id
-once, then calls `run` and sources the answer in the interactive shell.
+`shell/` holds the hook to source from your shell config: it exports the
+session id once, then calls `run` and sources the answer in the
+interactive shell.
 
 | Shell | File | Hook |
 | --- | --- | --- |
-| bash | `examples/bash.sh` | `command_not_found_handle` |
-| zsh | `examples/zsh.zsh` | `command_not_found_handler` |
-| fish | `examples/fish.fish` | `fish_command_not_found` |
-| nushell | `examples/nushell.nu` | `$env.config.hooks.command_not_found` |
+| bash | `shell/bash.sh` | `command_not_found_handle` |
+| zsh | `shell/zsh.zsh` | `command_not_found_handler` |
+| fish | `shell/fish.fish` | `fish_command_not_found` |
+| nushell | `shell/nushell.nu` | `$env.config.hooks.command_not_found` |
 
 nushell's hook receives only the command name (the full line is recovered
 from history) and cannot change the caller's environment, so the answer
