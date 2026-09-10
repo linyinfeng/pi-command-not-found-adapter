@@ -29,6 +29,10 @@
             install -Dm644 shell/fish.fish "$shells/fish.fish"
             install -Dm644 shell/nushell.nu "$shells/nushell.nu"
 
+            prompts=$out/share/pi-command-not-found-adapter/prompts
+            install -Dm644 prompts/base.md "$prompts/base.md"
+            install -Dm644 prompts/nix.md "$prompts/nix.md"
+
             # fish and nushell autoload these from XDG_DATA_DIRS.
             install -Dm644 shell/fish.fish \
               $out/share/fish/vendor_conf.d/pi-command-not-found-adapter.fish
@@ -44,6 +48,10 @@
             fish = "${finalAttrs.finalPackage}/share/pi-command-not-found-adapter/shell/fish.fish";
             nushell = "${finalAttrs.finalPackage}/share/pi-command-not-found-adapter/shell/nushell.nu";
             zsh = "${finalAttrs.finalPackage}/share/pi-command-not-found-adapter/shell/zsh.zsh";
+          };
+          passthru.prompts = {
+            base = "${finalAttrs.finalPackage}/share/pi-command-not-found-adapter/prompts/base.md";
+            nix = "${finalAttrs.finalPackage}/share/pi-command-not-found-adapter/prompts/nix.md";
           };
           meta = {
             mainProgram = "command-not-found-agent";

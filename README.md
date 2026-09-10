@@ -79,14 +79,28 @@ The Nix package drops the hooks in the standard places:
 | `share/fish/vendor_conf.d/pi-command-not-found-adapter.fish` | fish, from `XDG_DATA_DIRS` |
 | `share/nushell/vendor/autoload/pi-command-not-found-adapter.nu` | nushell's interactive session, from `XDG_DATA_DIRS` |
 | `etc/profile.d/pi-command-not-found-adapter.sh` | bash and zsh login shells |
+| `share/pi-command-not-found-adapter/prompts/{base,nix}.md` | `--system-prompt-file` |
 
 `passthru.shell.{bash,zsh,fish,nushell}` names the explicit-sourcing paths
-for a NixOS or home-manager config:
+and `passthru.prompts.{base,nix}` the prompt files, for a NixOS or
+home-manager config:
 
 ```nix
 programs.bash.interactiveShellInit = ''
   source ${pkgs.pi-command-not-found-adapter.passthru.shell.bash}
 '';
+```
+
+## System prompts
+
+The built-in prompt (`prompts/base.md`) is generic; `prompts/nix.md` is a
+full replacement written for a NixOS machine — it teaches the agent to find
+an attribute with `nix-locate`, to check it with `nix eval` and to answer
+with `nix shell nixpkgs#<attr> -c …`. Point `--system-prompt-file` at it
+to use it:
+
+```sh
+command-not-found-agent run --system-prompt-file …/prompts/nix.md --shell bash -- cowsay hi
 ```
 
 `pi` and `mcat` are runtime dependencies and are taken from `PATH` (or

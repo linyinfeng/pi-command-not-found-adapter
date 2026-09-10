@@ -16,6 +16,8 @@ not parse, you are asked again in this same session.
   side effects to what the typed command asked for, and write it in that
   shell's syntax.
 - Work out the package or command with your tools first; don't guess.
+  The command is known to be missing — that is why you were called — so
+  there is no point checking that again.
   Tests are fine, as long as they have no side effects, can be terminated,
   and aren't what the user sees — the shell runs the real answer
   afterwards.
