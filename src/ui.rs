@@ -10,7 +10,12 @@ const CLOUD: &str = "💭";
 pub struct Ui {
     term: Term,
     tty: bool,
+    /// Wrap width for rendered note output (may exceed the terminal; mcat
+    /// wraps itself).
     width: usize,
+    /// Physical room for the progress block: must not exceed the terminal,
+    /// or a wrapped line would corrupt the redraw.
+    block_width: usize,
     max_lines: usize,
     lines: VecDeque<String>,
     clouds: usize,
@@ -22,14 +27,14 @@ impl Ui {
     pub fn new(max_lines: usize, width: Option<usize>) -> Self {
         let term = Term::stderr();
         let tty = term.is_term();
-        let width = width
-            .or_else(|| term.size_checked().map(|(_, columns)| columns as usize))
-            .unwrap_or(80)
-            .max(20);
+        let physical = term.size_checked().map(|(_, columns)| columns as usize);
+        let width = width.or(physical).unwrap_or(80).max(20);
+        let block_width = width.min(physical.unwrap_or(width));
         Self {
             term,
             tty,
             width,
+            block_width,
             max_lines: max_lines.max(1),
             lines: VecDeque::new(),
             clouds: 0,
@@ -91,7 +96,7 @@ impl Ui {
     }
 
     pub fn rule(&mut self) {
-        let rule = "─".repeat(self.width);
+        let rule = "─".repeat(self.block_width);
         self.line(&rule);
     }
 
@@ -113,7 +118,7 @@ impl Ui {
     }
 
     fn status(&self) -> String {
-        let room = self.width.saturating_sub(2) / 2;
+        let room = self.block_width.saturating_sub(2) / 2;
         let mut status = CLOUD.repeat(self.clouds.min(room));
         status.push_str(FRAMES[self.frame % FRAMES.len()]);
         status
@@ -142,7 +147,7 @@ impl Ui {
 
     fn clip(&self, text: &str) -> String {
         let text = printable(text);
-        let limit = self.width.saturating_sub(1).max(1);
+        let limit = self.block_width.saturating_sub(1).max(1);
         let mut clipped = String::new();
         let mut used = 0;
         for char in text.chars() {
