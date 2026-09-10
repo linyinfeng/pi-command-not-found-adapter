@@ -35,7 +35,7 @@ before it) and prints the answer's `source` on stdout. The shell hooks in
 `shell/` call it, for example:
 
 ```sh
-command-not-found-agent run --shell bash --model anthropic/claude-haiku-4-5 -- cowsay hi
+command-not-found-agent run --shell bash --model deepseek/deepseek-v4-flash -- cowsay hi
 ```
 
 `system-prompt` prints exactly what `run` sends to pi — the base prompts,
