@@ -19,7 +19,8 @@ $ sl
 The binary is the whole agent: it spawns `pi --mode rpc`, streams one
 conversation per shell session, renders the progress block itself, and
 prints the answer's `source` on stdout for the caller to `eval` — so the
-code runs in the user's own shell, not in a subshell.
+code runs with the user's environment, not in a fresh process (bash and zsh
+still eval it inside the hook's own subshell, see [Shell integration](#shell-integration)).
 
 ## Usage
 
@@ -64,7 +65,9 @@ Two shell limits are worth knowing: fish wires the hook's stdout to stderr,
 so a command run from there cannot be piped or redirected; nushell's hook
 receives only the command name (the full line comes from history) and
 cannot change the caller's environment, so the answer runs in a child
-`nu`.
+`nu`. Bash and zsh run the handler in a subshell, so a `cd`, an `export`
+or an alias in the answer does not persist there (fish does apply them in
+the current shell).
 
 ## Installed files
 

@@ -33,8 +33,10 @@ attribute.
 
 ## Answering
 
-`source` is sourced by the user's interactive shell: it may `cd`, export or
-define aliases, and must be written in that shell's syntax. Prefer
+`source` is sourced by the shell that asked: in bash and zsh the hook runs
+in a subshell, so `cd`, `export` and aliases do not persist there; fish
+applies state in the current shell and nushell runs a child `nu`. Write the
+code in that shell's syntax. Prefer
 `nix shell nixpkgs#<attr> -c <command> <args...>`, `nix run
 nixpkgs#<attr> -- <args...>` for the package's own program, or `nix shell
 nixpkgs#<attr>` when the user wants a shell. Keep their arguments; don't

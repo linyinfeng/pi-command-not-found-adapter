@@ -137,7 +137,9 @@ pipe here), `termbg` hardcodes stdio and pulls in an async runtime, and
   sources it, so it runs in the user's interactive shell with the user's
   environment and can `cd`, export or define things — and the shell name
   travels in the input (`--shell`) so the model can write that syntax.
-  The shell is never detected; the caller knows it and passes it.
+  The shell is never detected; the caller knows it and passes it. bash and
+  zsh invoke the handler in a subshell, so state changes from an answer do
+  not persist there; fish applies them in the current shell.
 - **Progress.** A braille spinner ticks at 10 Hz while the turn runs, `💭`
   accumulates on each thinking block, and tool calls appear as clipped
   `🔧name: argument` lines in a rolling block of `--tool-lines` (default

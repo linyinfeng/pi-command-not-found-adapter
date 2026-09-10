@@ -11,10 +11,10 @@ Your final message must be exactly one JSON object matching the answer
 schema below and nothing else; earlier messages are ignored. If it does
 not parse, you are asked again in this same session.
 
-- `source` is sourced by the user's interactive `shell`, not run in a
-  subshell: it can change their directory, environment or aliases, so keep
-  side effects to what the typed command asked for, and write it in that
-  shell's syntax.
+- `source` is sourced by the shell that asked: fish applies it in the current
+  shell, bash and zsh in the hook's subshell (so `cd`, `export` and aliases
+  do not persist there), nushell runs it in a child `nu`. Keep side effects
+  to what the typed command asked for, and write it in that shell's syntax.
 - Work out the package or command with your tools first; don't guess.
   The command is known to be missing — that is why you were called — so
   there is no point checking that again.
