@@ -19,6 +19,12 @@ pub struct Failure {
     pub errors: Vec<String>,
 }
 
+/// How a turn ended without an answer.
+enum TurnError {
+    Interrupted,
+    Failed(String),
+}
+
 impl std::fmt::Display for Failure {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.reason)?;
@@ -41,7 +47,13 @@ impl Agent {
         for attempt in 0..=retries {
             let turn = match self.turn(&message, ui) {
                 Ok(turn) => turn,
-                Err(reason) => {
+                Err(TurnError::Interrupted) => {
+                    // The flag is set before this error; the caller turns it
+                    // into exit 130 instead of reporting a failure.
+                    failure.reason = "interrupted".into();
+                    return Err(failure);
+                }
+                Err(TurnError::Failed(reason)) => {
                     failure.reason = reason;
                     return Err(failure);
                 }
@@ -64,34 +76,43 @@ impl Agent {
         Err(failure)
     }
 
-    fn turn(&mut self, message: &str, ui: &mut Ui) -> Result<Turn, String> {
-        self.send_prompt(message)?;
+    fn turn(&mut self, message: &str, ui: &mut Ui) -> Result<Turn, TurnError> {
+        self.send_prompt(message).map_err(TurnError::Failed)?;
         let deadline = Instant::now() + self.timeout();
         let mut turn = Turn::default();
         loop {
+            if signals::interrupted() {
+                // A busy event stream must not starve Ctrl-C: stop and let the
+                // caller exit 130.
+                self.stop();
+                return Err(TurnError::Interrupted);
+            }
             let event = self.events().recv_timeout(TICK);
             match event {
                 Ok(Event::Settled) => return Ok(turn),
                 Ok(Event::Closed) => {
-                    return Err(format!("pi exited early ({})", self.exit_status()));
+                    return Err(TurnError::Failed(format!(
+                        "pi exited early ({})",
+                        self.exit_status()
+                    )));
                 }
-                Ok(Event::Failed(error)) => return Err(error),
+                Ok(Event::Failed(error)) => return Err(TurnError::Failed(error)),
                 Ok(Event::Text(text)) => turn.texts.push(text),
                 Ok(Event::Error(error)) => turn.errors.push(error),
                 Ok(Event::Tool { name, args }) => ui.tool(&name, &summary(&args)),
                 Ok(Event::Thinking) => ui.think(),
                 Err(RecvTimeoutError::Timeout) => {
-                    if signals::interrupts() > 0 {
-                        self.stop();
-                        std::process::exit(130);
-                    }
                     if Instant::now() >= deadline {
                         let seconds = self.timeout().as_secs();
-                        return Err(format!("pi did not settle within {seconds}s"));
+                        return Err(TurnError::Failed(format!(
+                            "pi did not settle within {seconds}s"
+                        )));
                     }
                     ui.tick();
                 }
-                Err(RecvTimeoutError::Disconnected) => return Err("pi stream closed".into()),
+                Err(RecvTimeoutError::Disconnected) => {
+                    return Err(TurnError::Failed("pi stream closed".into()));
+                }
             }
         }
     }

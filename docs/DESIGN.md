@@ -143,6 +143,8 @@ pipe here), `termbg` hardcodes stdio and pulls in an async runtime, and
   `🔧name: argument` lines in a rolling block of `--tool-lines` (default
   5) that is redrawn in place and erased before the note is printed.
 - **Exit status.** 0 once an answer was produced (even an empty one), 1
-  when pi failed or the answer never parsed, 130 on Ctrl-C.
+  when pi failed or the answer never parsed, 130 on Ctrl-C — an interrupt
+  anywhere in the turn stops it, and one that arrives while the note is
+  rendering still wins, so the shell is never handed code after a Ctrl-C.
 - **Logging.** `history/<UTC time>/{input,markdown,source}` next to the
   session, `0600` files in `0700` directories.

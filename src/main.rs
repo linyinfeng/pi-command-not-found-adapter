@@ -91,6 +91,10 @@ fn run(args: &Run) -> Result<i32> {
     let answer = match agent.ask(&input, args.retries, &mut ui) {
         Ok(answer) => answer,
         Err(failure) => {
+            if signals::interrupted() {
+                // Ctrl-C won even when pi died first: nothing is reported.
+                return Ok(130);
+            }
             if let Some(text) = &failure.last_text {
                 markdown::render(text, args, &mut ui);
             }
@@ -102,6 +106,10 @@ fn run(args: &Run) -> Result<i32> {
     let source = answer.source.unwrap_or_default();
     markdown::render(&note, args, &mut ui);
     session.start_history(&command_line, &note, &source);
+    if signals::interrupted() {
+        // A Ctrl-C during the note: nothing has been printed for the shell yet.
+        return Ok(130);
+    }
     if source.trim().is_empty() {
         return Ok(0);
     }
