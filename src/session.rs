@@ -1,4 +1,4 @@
-use std::fs::{self, DirBuilder, File, OpenOptions};
+use std::fs::{self, DirBuilder, OpenOptions};
 use std::io::Write;
 use std::os::unix::fs::{DirBuilderExt, OpenOptionsExt, PermissionsExt};
 use std::path::{Path, PathBuf};
@@ -51,7 +51,7 @@ impl Session {
     }
 
     /// Create the per-invocation log directory and its static files.
-    pub fn start_history(&self, input: &str, markdown: &str, source: &str) -> Option<PathBuf> {
+    pub fn start_history(&self, input: &str, markdown: &str, source: &str) {
         let dir = self.dir.join("history").join(stamp());
         if DirBuilder::new()
             .recursive(true)
@@ -59,29 +59,24 @@ impl Session {
             .create(&dir)
             .is_err()
         {
-            return None;
+            return;
         }
         let _ = fs::set_permissions(&dir, fs::Permissions::from_mode(DIR_MODE));
         for (name, content) in [("input", input), ("markdown", markdown), ("source", source)] {
             write_file(&dir.join(name), content);
         }
         debug!("history {}", dir.display());
-        Some(dir)
     }
 }
 
-fn open_log(path: &Path) -> Option<File> {
-    OpenOptions::new()
+fn write_file(path: &Path, content: &str) {
+    let file = OpenOptions::new()
         .write(true)
         .create(true)
         .truncate(true)
         .mode(FILE_MODE)
-        .open(path)
-        .ok()
-}
-
-fn write_file(path: &Path, content: &str) {
-    if let Some(mut file) = open_log(path) {
+        .open(path);
+    if let Ok(mut file) = file {
         let _ = file.write_all(content.as_bytes());
     }
 }
