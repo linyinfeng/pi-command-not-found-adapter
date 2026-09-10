@@ -10,8 +10,11 @@ or set -gx COMMAND_NOT_FOUND_SESSION_ID (command-not-found-agent session-id)
 
 function fish_command_not_found
     set -l code (command-not-found-agent run --shell fish -- $argv | string collect)
-    if test $pipestatus[1] -ne 0
-        return $pipestatus[1]
+    # fish resets $pipestatus on every command, so read the agent's status
+    # before the next builtin clobbers it.
+    set -l ret $pipestatus[1]
+    if test $ret -ne 0
+        return $ret
     end
     eval $code
 end
