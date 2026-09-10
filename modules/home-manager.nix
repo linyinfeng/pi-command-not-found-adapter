@@ -7,15 +7,10 @@ in
 {
   options.programs.pi-command-not-found-adapter = {
     enable = mkEnableOption "the pi command-not-found adapter";
-    # Defaults to pkgs.pi-command-not-found-adapter, which the flake's
-    # overlays.default provides; the package is not in nixpkgs.
     package = mkPackageOption pkgs "pi-command-not-found-adapter" { };
   };
 
   config = mkIf cfg.enable {
-    # home-manager keeps a package's share dirs off XDG_DATA_DIRS, so unlike
-    # the NixOS module this one sources the hook for every shell explicitly,
-    # each gated on the programs.* module the user enabled.
     home.packages = [ cfg.package ];
 
     programs.bash.initExtra = mkIf config.programs.bash.enable ''

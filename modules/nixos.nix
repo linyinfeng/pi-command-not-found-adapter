@@ -7,8 +7,6 @@ in
 {
   options.programs.pi-command-not-found-adapter = {
     enable = mkEnableOption "the pi command-not-found adapter";
-    # Defaults to pkgs.pi-command-not-found-adapter, which the flake's
-    # overlays.default provides; the package is not in nixpkgs.
     package = mkPackageOption pkgs "pi-command-not-found-adapter" { };
   };
 
