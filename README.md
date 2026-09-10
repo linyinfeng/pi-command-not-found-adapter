@@ -131,6 +131,10 @@ colons, like `PATH`.
 | `--timeout <SECONDS>` | `COMMAND_NOT_FOUND_TIMEOUT` | `600` |
 | `--trace <FILE>` | `COMMAND_NOT_FOUND_TRACE` | – |
 
+The options that repeat in the environment are lists:
+`COMMAND_NOT_FOUND_SYSTEM_PROMPT_FILE` is split on `:` (like `PATH`) and
+`COMMAND_NOT_FOUND_PI_ARGS` on newlines.
+
 On a light terminal the note is rendered with mcat's light theme: the
 adapter asks the terminal for its background (OSC 11), and passes
 `--theme makurai-light` when it is light. When `MCAT_THEME` is already set
