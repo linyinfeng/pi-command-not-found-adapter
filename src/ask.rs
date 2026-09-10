@@ -38,7 +38,7 @@ impl std::fmt::Display for Failure {
 impl Agent {
     /// Send the input, then re-ask in the same session until the answer parses.
     pub fn ask(&mut self, input: &Input, retries: u32, ui: &mut Ui) -> Result<Answer, Failure> {
-        let mut message = serde_json::to_string(input).unwrap_or_default();
+        let mut message = serde_json::to_string(input).expect("Input always serializes");
         let mut failure = Failure {
             reason: "no answer".into(),
             last_text: None,
