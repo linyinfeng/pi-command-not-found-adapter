@@ -62,9 +62,11 @@ interactive shell.
 | fish | `shell/fish.fish` | `fish_command_not_found` |
 | nushell | `shell/nushell.nu` | `$env.config.hooks.command_not_found` |
 
-nushell's hook receives only the command name (the full line is recovered
-from history) and cannot change the caller's environment, so the answer
-runs in a child `nu`: plain commands work, `cd`/env effects do not stick.
+Two shell limits are worth knowing: fish wires the hook's stdout to stderr,
+so a command run from there cannot be piped or redirected; nushell's hook
+receives only the command name (the full line comes from history) and
+cannot change the caller's environment, so the answer runs in a child
+`nu`.
 
 ### `run` options
 

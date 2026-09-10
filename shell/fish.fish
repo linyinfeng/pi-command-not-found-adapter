@@ -1,4 +1,8 @@
 # fish: source this from ~/.config/fish/config.fish
+#
+# fish runs this function with its stdout wired to stderr, so a command run
+# from here cannot be piped or redirected (`cowsay hi | cat` loses the
+# output); bash and zsh do not have this limitation.
 
 set -q COMMAND_NOT_FOUND_SESSION_ID
 and test -n "$COMMAND_NOT_FOUND_SESSION_ID"
