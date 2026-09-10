@@ -2,10 +2,11 @@
 
 ## One binary
 
-The shell handler, the pi driver, the progress UI, the log writer and the
-command runner are one process. That keeps the conversation state in one
-place and means the only runtime dependencies are `pi`, `bash` and (for
-pretty notes) `mdcat` — all from `PATH` and all overridable.
+The shell handler, the pi driver, the progress UI and the log writer are
+one process. That keeps the conversation state in one place and means the
+only runtime dependencies are `pi` and (for pretty notes) `mdcat` — both
+from `PATH` and both overridable. Nothing is executed by the adapter: the
+answer goes back to the shell that asked.
 
 ## Driving pi
 
@@ -56,9 +57,8 @@ Rejected alternatives:
   terminal dependency for the same escapes.
 - **`ratatui`** (0.30): full-screen widget framework; wrong model for
   inline scrollback output.
-- **`tokio`**: three blocking pipes (pi stdout, command stdout/stderr) map
-  directly onto threads; an async runtime would add complexity, not
-  throughput.
+- **`tokio`**: two blocking pipes (pi stdout and stdin) map directly onto
+  threads; an async runtime would add complexity, not throughput.
 - **`ctrlc`** (3.5): SIGINT-focused; `signal-hook` covers TERM/HUP and
   gives a clean iterator.
 - **`time`/`jiff`**: the only timestamp needed is the history directory
@@ -91,21 +91,22 @@ for a two-field note.
 - **Answers.** The model must reply with one JSON object; the schema is
   generated from `protocol::Answer` and appended to the system prompt, so
   the field descriptions live with the types. Both fields are optional:
-  omit `command` when nothing should run. `parse_answer` scans the
+  omit `source` when nothing should run. `parse_answer` scans the
   assistant text for JSON objects and keeps the last one that carries at
   least one of the two fields. Anything else — an unrelated object, a
   mistyped field — is not an answer, and the adapter asks again in the
   same session (`--retries`, default 2) instead of starting a new
   conversation.
+- **Sourced answers.** `source` is printed on stdout unchanged; the caller
+  sources it, so it runs in the user's interactive shell with the user's
+  environment and can `cd`, export or define things — and the shell name
+  travels in the input (`--shell`) so the model can write that syntax.
+  The shell is never detected; the caller knows it and passes it.
 - **Progress.** A braille spinner ticks at 10 Hz while the turn runs, `💭`
   accumulates on each thinking block, and tool calls appear as clipped
   `🔧name: argument` lines in a rolling block of `--tool-lines` (default
   5) that is redrawn in place and erased before the note is printed.
-- **Exit status.** The command's own status, `128 + signal` when it was
-  killed. The first Ctrl-C reaches the child; the second kills it. SIGTERM
-  and SIGHUP exit `128 + signal`.
-- **Logging.** `history/<UTC time>/{input,markdown,command,status,stdout,stderr}`
-  next to the session, `0600` files in `0700` directories. `status` stays
-  empty when the run was interrupted. The command's output is tee'd to the
-  terminal while it runs, and a grandchild holding the pipes open cannot
-  make the adapter wait forever.
+- **Exit status.** 0 once an answer was produced (even an empty one), 1
+  when pi failed or the answer never parsed, 130 on Ctrl-C.
+- **Logging.** `history/<UTC time>/{input,markdown,source}` next to the
+  session, `0600` files in `0700` directories.

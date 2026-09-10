@@ -48,7 +48,7 @@ mod tests {
     use clap::Parser;
 
     fn args() -> Run {
-        let cli = Cli::parse_from(["agent", "run", "--", "ls"]);
+        let cli = Cli::parse_from(["agent", "run", "--shell", "bash", "--", "ls"]);
         let Command::Run(run) = cli.command else {
             panic!("expected run");
         };

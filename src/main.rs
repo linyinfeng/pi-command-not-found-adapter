@@ -1,6 +1,5 @@
 mod ask;
 mod cli;
-mod exec;
 mod markdown;
 mod pi;
 mod prompt;
@@ -10,6 +9,7 @@ mod signals;
 mod ui;
 
 use std::env;
+use std::io::Write;
 use std::process::ExitCode;
 
 use anyhow::{Context, Result, bail};
@@ -71,6 +71,7 @@ fn run(args: &Run) -> Result<i32> {
     let command_line = command_line(&args.input);
     let input = Input {
         session_id: session.id.clone(),
+        shell: args.shell.clone(),
         cwd: Some(
             env::current_dir()
                 .context("cannot read the current directory")?
@@ -93,25 +94,21 @@ fn run(args: &Run) -> Result<i32> {
         }
     };
     let note = answer.markdown.unwrap_or_default();
-    let command = answer.command.unwrap_or_default();
+    let source = answer.source.unwrap_or_default();
     markdown::render(&note, args, &mut ui);
-    let history = session.start_history(&command_line, &note, &command);
-    if command.trim().is_empty() {
-        session::write_status(history.as_deref(), 0);
+    session.start_history(&command_line, &note, &source);
+    if source.trim().is_empty() {
         return Ok(0);
     }
     if !note.trim().is_empty() {
         ui.line("");
     }
-    ui.announce(&command);
+    ui.announce(&source);
     ui.rule();
-    if args.dry_run {
-        session::write_status(history.as_deref(), 0);
-        return Ok(0);
-    }
-    let status = exec::run(history.as_deref(), &command)?;
-    session::write_status(history.as_deref(), status);
-    Ok(status)
+    let mut stdout = std::io::stdout();
+    writeln!(stdout, "{source}")?;
+    stdout.flush()?;
+    Ok(0)
 }
 
 #[cfg(test)]

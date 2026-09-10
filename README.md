@@ -1,8 +1,8 @@
 # pi-command-not-found-adapter
 
 A shell `command-not-found` handler that asks
-[pi](https://github.com/earendil-works/pi-mono) for a command, shows the
-agent's work, and runs the answer.
+[pi](https://github.com/earendil-works/pi-mono) for shell code, shows the
+agent's work, and hands the code back to the shell to source.
 
 ```
 $ sl
@@ -14,8 +14,9 @@ $ sl
 ```
 
 The binary is the whole agent: it spawns `pi --mode rpc`, streams one
-conversation per shell session, renders the progress block itself, and runs
-the resulting command with `bash -c`, forwarding its exit status.
+conversation per shell session, renders the progress block itself, and
+prints the answer's `source` on stdout for the caller to `eval` — so the
+code runs in the user's own shell, not in a subshell.
 
 ## Usage
 
@@ -25,11 +26,21 @@ command-not-found-agent session-id
 ```
 
 `run` is the handler: it takes the command line after `--` (options come
-before it), which is what a shell calls as
-`command-not-found-agent run -- "$@"`.
+before it) and prints the answer's `source` on stdout. A shell wraps it
+like this:
 
 ```sh
-command-not-found-agent run --model anthropic/claude-haiku-4-5 -- cowsay hi
+command_not_found_handle() {
+  local code status
+  code=$("$COMMAND_NOT_FOUND_AGENT" run --shell bash -- "$@") || return $?
+  eval "$code"
+}
+```
+
+Standalone:
+
+```sh
+command-not-found-agent run --shell bash --model anthropic/claude-haiku-4-5 -- cowsay hi
 ```
 
 `session-id` prints a fresh UUID for a shell to export once at startup:
@@ -47,6 +58,7 @@ export COMMAND_NOT_FOUND_SESSION_ID="$(command-not-found-agent session-id)"
 | `--thinking <LEVEL>` | `COMMAND_NOT_FOUND_THINKING` | pi default |
 | `--pi-arg <ARG>` | `COMMAND_NOT_FOUND_PI_ARGS` | – |
 | `--session-id <ID>` | `COMMAND_NOT_FOUND_SESSION_ID` | random UUID |
+| `--shell <SHELL>` | `COMMAND_NOT_FOUND_SHELL` | required |
 | `--session-root <DIR>` | `COMMAND_NOT_FOUND_SESSION_ROOT` | `~/.pi/command-not-found/sessions` |
 | `--system-prompt-file <FILE>` | `COMMAND_NOT_FOUND_SYSTEM_PROMPT_FILE` | built-in |
 | `--mdcat <PATH>` | `COMMAND_NOT_FOUND_MDCAT` | `mdcat` |
@@ -55,22 +67,29 @@ export COMMAND_NOT_FOUND_SESSION_ID="$(command-not-found-agent session-id)"
 | `--tool-lines <N>` | `COMMAND_NOT_FOUND_TOOL_LINES` | `5` |
 | `--timeout <SECONDS>` | `COMMAND_NOT_FOUND_TIMEOUT` | `600` |
 | `--trace <FILE>` | `COMMAND_NOT_FOUND_TRACE` | – |
-| `--dry-run` | – | off |
 
 ## Answer protocol
 
 The user message is JSON:
 
 ```json
-{"session_id": "…", "cwd": "/home/user", "input": "cowsay hi"}
+{
+  "session_id": "…",
+  "shell": "bash",
+  "cwd": "/home/user",
+  "input": "cowsay hi"
+}
 ```
 
 The agent answers with exactly one JSON object; either field may be
 omitted:
 
 ```json
-{"markdown": "short note for the user", "command": "shell command"}
+{"markdown": "short note for the user", "source": "shell code"}
 ```
+
+`source` is printed on stdout, unchanged, for the caller to source; the
+note, the `⚡` announcement and the progress block all go to stderr.
 
 Both schemas are generated from the Rust types with `schemars` — the doc
 comments become the field descriptions — and appended to the system
@@ -93,9 +112,8 @@ Only part 1 is replaceable; 2 and 3 must stay in sync with the adapter.
 
 Per session: `~/.pi/command-not-found/sessions/<session_id>/session.jsonl`
 (pi's own session, resumed on every invocation). Per invocation:
-`history/<UTC time>/{input,markdown,command,status,stdout,stderr}`; the
-command's output is tee'd to the terminal while it runs. Directories are
-`0700`, files `0600`, `status` stays empty if the run was interrupted.
+`history/<UTC time>/{input,markdown,source}`. Directories are `0700`,
+files `0600`.
 
 Diagnostics go through `tracing` to stderr — a warning when no session id
 was supplied, debug detail for the pi command and the history directory.
@@ -114,7 +132,6 @@ was supplied, debug detail for the pi command and the history directory.
 | `ask.rs` | turn loop, retry loop, tool summaries |
 | `ui.rs` | rolling progress block, spinner, clipping |
 | `markdown.rs` | mdcat rendering with a plain-text fallback |
-| `exec.rs` | `bash -c`, output tee, exit status |
 | `signals.rs` | SIGINT counting, TERM/HUP exit |
 
 See [docs/DESIGN.md](docs/DESIGN.md) for the crate selection and design

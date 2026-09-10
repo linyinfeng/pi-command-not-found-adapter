@@ -51,6 +51,10 @@ pub struct Run {
     #[arg(long, env = "COMMAND_NOT_FOUND_SESSION_ID")]
     pub session_id: Option<String>,
 
+    /// Shell that will source the answer
+    #[arg(long, env = "COMMAND_NOT_FOUND_SHELL", required = true)]
+    pub shell: String,
+
     /// Replace the built-in base system prompt with this file
     #[arg(long, env = "COMMAND_NOT_FOUND_SYSTEM_PROMPT_FILE")]
     pub system_prompt_file: Option<PathBuf>,
@@ -79,10 +83,6 @@ pub struct Run {
     #[arg(long, env = "COMMAND_NOT_FOUND_TIMEOUT", default_value_t = 600)]
     pub timeout: u64,
 
-    /// Print the command instead of running it
-    #[arg(long)]
-    pub dry_run: bool,
-
     /// Append every raw pi protocol line to this file
     #[arg(long, env = "COMMAND_NOT_FOUND_TRACE")]
     pub trace: Option<PathBuf>,
@@ -94,16 +94,22 @@ mod tests {
 
     #[test]
     fn run_takes_the_command_after_a_double_dash() {
-        let cli = Cli::parse_from(["agent", "run", "--", "cowsay", "--help"]);
+        let cli = Cli::parse_from(["agent", "run", "--shell", "bash", "--", "cowsay", "--help"]);
         let Command::Run(run) = cli.command else {
             panic!("expected run");
         };
         assert_eq!(run.input, ["cowsay", "--help"]);
+        assert_eq!(run.shell, "bash");
     }
 
     #[test]
     fn run_rejects_the_command_without_the_separator() {
-        assert!(Cli::try_parse_from(["agent", "run", "cowsay"]).is_err());
+        assert!(Cli::try_parse_from(["agent", "run", "--shell", "bash", "cowsay"]).is_err());
+    }
+
+    #[test]
+    fn run_needs_a_shell() {
+        assert!(Cli::try_parse_from(["agent", "run", "--", "cowsay"]).is_err());
     }
 
     #[test]

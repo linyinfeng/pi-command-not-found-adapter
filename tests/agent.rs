@@ -5,8 +5,7 @@ use std::process::{Command, Output};
 
 const BIN: &str = env!("CARGO_BIN_EXE_command-not-found-agent");
 
-/// A fake `pi --mode rpc`: the first turn answers with prose, the next with the
-/// expected JSON. `$1` = the file holding the assistant text per turn.
+/// A fake `pi --mode rpc`: turn N answers with `turns[N]`.
 fn fake_pi(dir: &Path, turns: &[&str]) -> PathBuf {
     let path = dir.join("pi");
     let mut script = String::from("#!/bin/sh\nturn=0\nwhile IFS= read -r line; do\n");
@@ -33,6 +32,8 @@ fn fake_pi(dir: &Path, turns: &[&str]) -> PathBuf {
 fn run(dir: &Path, pi: &Path, extra: &[&str]) -> Output {
     Command::new(BIN)
         .arg("run")
+        .arg("--shell")
+        .arg("bash")
         .arg("--pi")
         .arg(pi)
         .arg("--session-root")
@@ -55,28 +56,47 @@ fn temp_dir(name: &str) -> PathBuf {
 }
 
 #[test]
-fn retries_then_runs_the_command() {
+fn retries_then_prints_the_source() {
     let dir = temp_dir("retry");
     let pi = fake_pi(
         &dir,
         &[
             "I think you want cowsay.",
-            r#"{"markdown":"note","command":"echo hello"}"#,
+            r#"{"markdown":"note","source":"nix shell nixpkgs#cowsay -c cowsay hi"}"#,
         ],
     );
     let output = run(&dir, &pi, &[]);
     assert!(output.status.success(), "{:?}", output);
-    assert!(String::from_utf8_lossy(&output.stdout).contains("hello"));
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout).trim(),
+        "nix shell nixpkgs#cowsay -c cowsay hi"
+    );
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(stderr.contains("note"), "{stderr}");
-    assert!(stderr.contains("⚡ echo hello"), "{stderr}");
+    assert!(stderr.contains("⚡ nix shell nixpkgs#cowsay"), "{stderr}");
 
     let history = only_history(&dir);
     assert_eq!(read(&history.join("markdown")), "note");
-    assert_eq!(read(&history.join("command")), "echo hello");
-    assert_eq!(read(&history.join("status")), "0\n");
+    assert_eq!(
+        read(&history.join("source")),
+        "nix shell nixpkgs#cowsay -c cowsay hi"
+    );
     assert_eq!(read(&history.join("input")), "cowsay hi");
-    assert!(read(&history.join("stdout")).contains("hello"));
+    let _ = fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn omits_the_source_when_there_is_none() {
+    let dir = temp_dir("nosource");
+    let pi = fake_pi(&dir, &[r#"{"markdown":"just a note"}"#]);
+    let output = run(&dir, &pi, &[]);
+    assert!(output.status.success());
+    assert!(output.stdout.is_empty(), "{:?}", output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("just a note"), "{stderr}");
+    assert!(!stderr.contains('⚡'), "{stderr}");
+    let history = only_history(&dir);
+    assert_eq!(read(&history.join("source")), "");
     let _ = fs::remove_dir_all(&dir);
 }
 
@@ -87,34 +107,8 @@ fn fails_after_exhausting_retries() {
     let output = run(&dir, &pi, &[]);
     assert!(!output.status.success());
     assert_eq!(output.status.code(), Some(1));
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("command-not-found:"), "{stderr}");
-    let _ = fs::remove_dir_all(&dir);
-}
-
-#[test]
-fn omits_the_command_when_there_is_none() {
-    let dir = temp_dir("nocommand");
-    let pi = fake_pi(&dir, &[r#"{"markdown":"just a note"}"#]);
-    let output = run(&dir, &pi, &[]);
-    assert!(output.status.success());
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("just a note"), "{stderr}");
-    assert!(!stderr.contains('⚡'), "{stderr}");
-    let history = only_history(&dir);
-    assert_eq!(read(&history.join("command")), "");
-    assert_eq!(read(&history.join("status")), "0\n");
-    let _ = fs::remove_dir_all(&dir);
-}
-
-#[test]
-fn dry_run_prints_without_running() {
-    let dir = temp_dir("dry");
-    let pi = fake_pi(&dir, &[r#"{"markdown":"","command":"echo hello"}"#]);
-    let output = run(&dir, &pi, &["--dry-run"]);
-    assert!(output.status.success());
-    assert!(!String::from_utf8_lossy(&output.stdout).contains("hello"));
-    assert!(String::from_utf8_lossy(&output.stderr).contains("⚡ echo hello"));
+    assert!(output.stdout.is_empty(), "{:?}", output.stdout);
+    assert!(String::from_utf8_lossy(&output.stderr).contains("command-not-found:"));
     let _ = fs::remove_dir_all(&dir);
 }
 

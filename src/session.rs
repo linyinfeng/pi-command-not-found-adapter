@@ -46,7 +46,7 @@ impl Session {
     }
 
     /// Create the per-invocation log directory and its static files.
-    pub fn start_history(&self, input: &str, markdown: &str, command: &str) -> Option<PathBuf> {
+    pub fn start_history(&self, input: &str, markdown: &str, source: &str) -> Option<PathBuf> {
         let dir = self.dir.join("history").join(stamp());
         if DirBuilder::new()
             .recursive(true)
@@ -57,14 +57,7 @@ impl Session {
             return None;
         }
         let _ = fs::set_permissions(&dir, fs::Permissions::from_mode(DIR_MODE));
-        for (name, content) in [
-            ("input", input),
-            ("markdown", markdown),
-            ("command", command),
-            ("stdout", ""),
-            ("stderr", ""),
-            ("status", ""),
-        ] {
+        for (name, content) in [("input", input), ("markdown", markdown), ("source", source)] {
             write_file(&dir.join(name), content);
         }
         debug!("history {}", dir.display());
@@ -72,13 +65,7 @@ impl Session {
     }
 }
 
-pub fn write_status(history: Option<&Path>, status: i32) {
-    if let Some(dir) = history {
-        write_file(&dir.join("status"), &format!("{status}\n"));
-    }
-}
-
-pub fn open_log(path: &Path) -> Option<File> {
+fn open_log(path: &Path) -> Option<File> {
     OpenOptions::new()
         .write(true)
         .create(true)
@@ -88,7 +75,7 @@ pub fn open_log(path: &Path) -> Option<File> {
         .ok()
 }
 
-pub fn write_file(path: &Path, content: &str) {
+fn write_file(path: &Path, content: &str) {
     if let Some(mut file) = open_log(path) {
         let _ = file.write_all(content.as_bytes());
     }

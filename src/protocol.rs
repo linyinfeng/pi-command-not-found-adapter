@@ -8,6 +8,8 @@ pub struct Input {
     /// Session id of this shell conversation; also exported as
     /// COMMAND_NOT_FOUND_SESSION_ID.
     pub session_id: String,
+    /// Shell that will source the answer, e.g. bash, zsh, fish, sh.
+    pub shell: String,
     /// Directory the command was typed in.
     pub cwd: Option<String>,
     /// Command line the user typed.
@@ -21,13 +23,13 @@ pub struct Answer {
     /// stderr: plain Markdown only, no HTML, images or mermaid. Omit when
     /// there is nothing worth explaining.
     pub markdown: Option<String>,
-    /// The exact command line the user wanted, run with non-interactive
-    /// `bash -c` in the current directory and environment — no aliases or
-    /// shell functions, and stdout/stderr are pipes, so no colors or
-    /// pager. Use `nix shell nixpkgs#<pkg> -c <cmd>` for a package that is
+    /// Shell code for the shell named in the input, sourced in the user's
+    /// interactive session: it may run a command, `cd`, export variables,
+    /// or define aliases and functions. Prefer the exact command the user
+    /// wanted; use `nix shell nixpkgs#<pkg> -c <cmd>` for a package that is
     /// not installed. Omit when nothing should run: a typo, an ambiguous
     /// request, or a task you already did yourself.
-    pub command: Option<String>,
+    pub source: Option<String>,
 }
 
 /// The last JSON object in the assistant text that looks like an [`Answer`].
@@ -67,8 +69,8 @@ fn scan(text: &str) -> Result<Answer, String> {
 /// some other JSON object in the model's prose.
 fn answer_from(value: &Value) -> Result<Answer, String> {
     let object = value.as_object().ok_or("not a JSON object")?;
-    if !object.contains_key("markdown") && !object.contains_key("command") {
-        return Err("object has neither `markdown` nor `command`".into());
+    if !object.contains_key("markdown") && !object.contains_key("source") {
+        return Err("object has neither `markdown` nor `source`".into());
     }
     serde_json::from_value(value.clone()).map_err(|error| error.to_string())
 }
@@ -83,22 +85,22 @@ mod tests {
 
     #[test]
     fn parses_plain_object() {
-        let answer = parse_answer(&texts(r#"{"markdown":"hi","command":"ls"}"#)).unwrap();
+        let answer = parse_answer(&texts(r#"{"markdown":"hi","source":"ls"}"#)).unwrap();
         assert_eq!(answer.markdown.as_deref(), Some("hi"));
-        assert_eq!(answer.command.as_deref(), Some("ls"));
+        assert_eq!(answer.source.as_deref(), Some("ls"));
     }
 
     #[test]
     fn parses_object_inside_prose_and_fences() {
-        let body = "Sure, here it is:\n```json\n{\"markdown\":\"m\",\"command\":\"\"}\n```\n";
+        let body = "Sure, here it is:\n```json\n{\"markdown\":\"m\",\"source\":\"\"}\n```\n";
         let answer = parse_answer(&texts(body)).unwrap();
         assert_eq!(answer.markdown.as_deref(), Some("m"));
-        assert_eq!(answer.command.as_deref(), Some(""));
+        assert_eq!(answer.source.as_deref(), Some(""));
     }
 
     #[test]
     fn last_valid_object_wins() {
-        let body = r#"{"markdown":"first","command":"a"} then {"markdown":"second","command":"b"}"#;
+        let body = r#"{"markdown":"first","source":"a"} then {"markdown":"second","source":"b"}"#;
         let answer = parse_answer(&texts(body)).unwrap();
         assert_eq!(answer.markdown.as_deref(), Some("second"));
     }
@@ -107,16 +109,16 @@ mod tests {
     fn accepts_one_field_only() {
         let answer = parse_answer(&texts(r#"{"markdown":"only"}"#)).unwrap();
         assert_eq!(answer.markdown.as_deref(), Some("only"));
-        assert!(answer.command.is_none());
+        assert!(answer.source.is_none());
 
-        let answer = parse_answer(&texts(r#"{"command":"ls"}"#)).unwrap();
+        let answer = parse_answer(&texts(r#"{"source":"ls"}"#)).unwrap();
         assert!(answer.markdown.is_none());
-        assert_eq!(answer.command.as_deref(), Some("ls"));
+        assert_eq!(answer.source.as_deref(), Some("ls"));
     }
 
     #[test]
     fn accepts_explicit_nulls() {
-        let answer = parse_answer(&texts(r#"{"markdown":null,"command":"ls"}"#)).unwrap();
+        let answer = parse_answer(&texts(r#"{"markdown":null,"source":"ls"}"#)).unwrap();
         assert!(answer.markdown.is_none());
     }
 
@@ -128,13 +130,13 @@ mod tests {
 
     #[test]
     fn rejects_wrong_field_types() {
-        let error = parse_answer(&texts(r#"{"command":42}"#)).unwrap_err();
+        let error = parse_answer(&texts(r#"{"source":42}"#)).unwrap_err();
         assert!(error.contains("invalid type"), "{error}");
     }
 
     #[test]
     fn falls_back_to_earlier_text() {
-        let texts = vec!["garbage".to_string(), r#"{"command":"x"}"#.to_string()];
-        assert_eq!(parse_answer(&texts).unwrap().command.as_deref(), Some("x"));
+        let texts = vec!["garbage".to_string(), r#"{"source":"x"}"#.to_string()];
+        assert_eq!(parse_answer(&texts).unwrap().source.as_deref(), Some("x"));
     }
 }
