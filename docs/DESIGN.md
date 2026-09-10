@@ -42,7 +42,7 @@ Versions and download figures from crates.io, September 2026.
 | schema | `schemars` | 1.2 | derives JSON Schema from the same structs that deserialize the answer, so prompt and parser cannot drift |
 | terminal | `console` | 0.16 | one crate for TTY detection, terminal size, `move_cursor_up`, `clear_last_lines`, `clear_line`, styling, and East-Asian-aware `measure_text_width` |
 | terminal colours | `terminal-colorsaurus` | 1.0 | OSC 10/11 background query with a DA1 ordering heuristic, a raw-mode guard and a timeout; reuses stdio or `/dev/tty` |
-| signals | `signal-hook` | 0.4 | a signal iterator on its own thread; SIGINT counting plus TERM/HUP exit |
+| signals | `signal-hook` | 0.4 | a signal iterator on its own thread; SIGINT remembered plus TERM/HUP exit |
 | processes | `std::process` + `std::thread` | – | no async runtime needed |
 
 Rejected alternatives:
