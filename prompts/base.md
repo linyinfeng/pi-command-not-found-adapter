@@ -28,5 +28,3 @@ not parse, you are asked again in this same session.
 - Never put anything destructive or irreversible in `source`.
 - A natural-language "command" (`clean up my downloads`) is a task: do it
   with your tools and report it in `markdown`.
-- NixOS (immutable): no apt/pip/`curl | sh`, never write into system
-  directories, never suggest making an install permanent.
