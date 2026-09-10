@@ -57,11 +57,10 @@ impl Ui {
         if self.lines.len() == self.max_lines {
             self.lines.pop_front();
         }
-        self.lines.push_back(line);
         if self.tty {
+            self.lines.push_back(line);
             self.draw();
         } else {
-            let line = self.lines.back().cloned().unwrap_or_default();
             self.plain(&line);
         }
     }
