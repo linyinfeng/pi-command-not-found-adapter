@@ -22,7 +22,60 @@ prints the answer's `source` on stdout for the caller to `eval` — so the
 code runs with the user's environment, not in a fresh process (bash and zsh
 still eval it inside the hook's own subshell, see [Shell integration](#shell-integration)).
 
-## Usage
+## Installation
+
+### Generic
+
+1. Install the `command-not-found-adapter` binary on `PATH` (Nix machine:
+   `nix profile install .#` from this flake, or on any machine
+   `cargo install --path .`).
+2. Source the provided script for your shell — see the
+   [Shell integration](#shell-integration) table:
+
+```sh
+source <path>/shell/bash.sh     # bash
+source <path>/shell/zsh.zsh     # zsh
+source <path>/shell/fish.fish   # fish
+source <path>/shell/nushell.nu  # nushell
+```
+
+### Nix
+
+The flake provides a NixOS module and a home-manager module, each of
+which checks the shells enabled on its own layer and hooks those:
+
+```nix
+# configuration.nix
+{ inputs, ... }: {
+  # the package is not in nixpkgs; the overlay makes pkgs.* see it
+  nixpkgs.overlays = [ inputs.pi-command-not-found-adapter.overlays.default ];
+  imports = [ inputs.pi-command-not-found-adapter.nixosModules.default ];
+  programs.pi-command-not-found-adapter.enable = true;
+}
+```
+
+```nix
+# home-manager configuration (with home-manager's own pkgs)
+{ inputs, ... }: {
+  nixpkgs.overlays = [ inputs.pi-command-not-found-adapter.overlays.default ];
+  imports = [ inputs.pi-command-not-found-adapter.homeManagerModules.default ];
+  programs.pi-command-not-found-adapter.enable = true;
+}
+```
+
+When home-manager runs with the global pkgs (`useGlobalPkgs`), the overlay
+belongs on the NixOS side instead.
+
+The NixOS module sources the hook for bash and zsh (gated on
+`programs.bash.enable` / `programs.zsh.enable`); fish and nushell need no
+config there, they auto-load the hook from the package's data directories
+on `XDG_DATA_DIRS`. The home-manager module sources all four shells
+through their `programs.*` options, because home-manager keeps package
+data directories off `XDG_DATA_DIRS`. `programs.pi-command-not-found-adapter.package`
+defaults to `pkgs.pi-command-not-found-adapter` (provided by the overlay
+above); override it to use a different build.
+
+## CLI
 
 ```sh
 command-not-found-agent run [OPTIONS] -- <command> [args...]
@@ -47,6 +100,25 @@ is what makes prompt changes testable by hand.
 ```sh
 export COMMAND_NOT_FOUND_SESSION_ID="$(command-not-found-agent session-id)"
 ```
+
+### `run` options
+
+| Option | Environment | Default |
+| --- | --- | --- |
+| `--pi <PATH>` | `COMMAND_NOT_FOUND_PI` | `pi` |
+| `--model <MODEL>` | `COMMAND_NOT_FOUND_MODEL` | pi default |
+| `--thinking <LEVEL>` | `COMMAND_NOT_FOUND_THINKING` | pi default |
+| `--pi-arg <ARG>` | `COMMAND_NOT_FOUND_PI_ARGS` | – |
+| `--session-id <ID>` | `COMMAND_NOT_FOUND_SESSION_ID` | random UUID |
+| `--shell <SHELL>` | `COMMAND_NOT_FOUND_SHELL` | required |
+| `--session-root <DIR>` | `COMMAND_NOT_FOUND_SESSION_ROOT` | `$XDG_STATE_HOME/pi-command-not-found-adapter/sessions` |
+| `--system-prompt-file <FILE>` | `COMMAND_NOT_FOUND_SYSTEM_PROMPT_FILE` | built-in `base.md` |
+| `--mcat <PATH>` | `COMMAND_NOT_FOUND_MCAT` | `mcat` |
+| `--width <COLUMNS>` | `COMMAND_NOT_FOUND_WIDTH` | terminal width |
+| `--retries <N>` | `COMMAND_NOT_FOUND_RETRIES` | `2` |
+| `--tool-lines <N>` | `COMMAND_NOT_FOUND_TOOL_LINES` | `5` |
+| `--timeout <SECONDS>` | `COMMAND_NOT_FOUND_TIMEOUT` | `600` |
+| `--trace <FILE>` | `COMMAND_NOT_FOUND_TRACE` | – |
 
 ## Shell integration
 
@@ -114,25 +186,6 @@ colons, like `PATH`.
 
 `pi` and `mcat` are runtime dependencies and are taken from `PATH` (or
 `--pi`/`--mcat`); the package deliberately does not pin them.
-
-### `run` options
-
-| Option | Environment | Default |
-| --- | --- | --- |
-| `--pi <PATH>` | `COMMAND_NOT_FOUND_PI` | `pi` |
-| `--model <MODEL>` | `COMMAND_NOT_FOUND_MODEL` | pi default |
-| `--thinking <LEVEL>` | `COMMAND_NOT_FOUND_THINKING` | pi default |
-| `--pi-arg <ARG>` | `COMMAND_NOT_FOUND_PI_ARGS` | – |
-| `--session-id <ID>` | `COMMAND_NOT_FOUND_SESSION_ID` | random UUID |
-| `--shell <SHELL>` | `COMMAND_NOT_FOUND_SHELL` | required |
-| `--session-root <DIR>` | `COMMAND_NOT_FOUND_SESSION_ROOT` | `$XDG_STATE_HOME/pi-command-not-found-adapter/sessions` |
-| `--system-prompt-file <FILE>` | `COMMAND_NOT_FOUND_SYSTEM_PROMPT_FILE` | built-in `base.md` |
-| `--mcat <PATH>` | `COMMAND_NOT_FOUND_MCAT` | `mcat` |
-| `--width <COLUMNS>` | `COMMAND_NOT_FOUND_WIDTH` | terminal width |
-| `--retries <N>` | `COMMAND_NOT_FOUND_RETRIES` | `2` |
-| `--tool-lines <N>` | `COMMAND_NOT_FOUND_TOOL_LINES` | `5` |
-| `--timeout <SECONDS>` | `COMMAND_NOT_FOUND_TIMEOUT` | `600` |
-| `--trace <FILE>` | `COMMAND_NOT_FOUND_TRACE` | – |
 
 The options that repeat in the environment are lists:
 `COMMAND_NOT_FOUND_SYSTEM_PROMPT_FILE` is split on `:` (like `PATH`) and

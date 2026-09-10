@@ -14,6 +14,17 @@
       version = (nixpkgs.lib.importTOML ./Cargo.toml).package.version;
     in
     {
+      # Modules take pkgs from their evaluation context (NixOS / home-manager).
+      nixosModules.default = import ./modules/nixos.nix;
+      homeManagerModules.default = import ./modules/home-manager.nix;
+
+      # The adapter is not in nixpkgs; the overlay is what makes
+      # pkgs.pi-command-not-found-adapter exist, which is the modules'
+      # package default. Users add it like any other overlay.
+      overlays.default = final: prev: {
+        pi-command-not-found-adapter = self.packages.${final.system}.default;
+      };
+
       packages = eachSystem (pkgs: rec {
         pi-command-not-found-adapter = pkgs.rustPlatform.buildRustPackage (finalAttrs: {
           pname = "pi-command-not-found-adapter";
