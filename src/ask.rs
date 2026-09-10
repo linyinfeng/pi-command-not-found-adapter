@@ -124,13 +124,16 @@ pub struct Turn {
     pub errors: Vec<String>,
 }
 
+/// Argument keys the progress block shows, in the order it looks for them.
+/// `prompts/base.md` promises this list to the model; keep both in step.
+const ARGUMENT_KEYS: [&str; 5] = ["command", "path", "pattern", "query", "url"];
+
 /// One clipped line per tool call: the tool name plus a short argument.
 pub fn summary(args: &Value) -> String {
-    const KEYS: [&str; 5] = ["command", "path", "pattern", "query", "url"];
     let Some(object) = args.as_object() else {
         return String::new();
     };
-    for key in KEYS {
+    for key in ARGUMENT_KEYS {
         if let Some(value) = object.get(key).and_then(Value::as_str) {
             let value = value.split_whitespace().collect::<Vec<_>>().join(" ");
             if !value.is_empty() {
@@ -170,5 +173,14 @@ mod tests {
     fn prefers_command_over_later_keys() {
         let args = json!({"query": "q", "command": "c"});
         assert_eq!(summary(&args), "c");
+    }
+
+    /// The prompt names these keys, so a new key here is a prompt change too.
+    #[test]
+    fn the_prompt_lists_every_argument_key() {
+        let prompt = include_str!("../prompts/base.md");
+        for key in ARGUMENT_KEYS {
+            assert!(prompt.contains(key), "prompts/base.md does not name {key}");
+        }
     }
 }
