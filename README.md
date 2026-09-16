@@ -86,7 +86,40 @@ Every knob of `run` is an option: `pi`, `model`, `thinking`, `piArgs`,
 NixOS module puts it in `/etc/xdg`, home-manager in the user's own config
 directory — so nothing at all is exported to the shell; [below](#run-options)
 is how that file layers with one the user writes. An unset option leaves
-the adapter's own default alone.
+the adapter's own default alone, except `systemPromptFile`, which the
+modules point at the Nix prompt (`prompts/nix.md`); set it to
+`passthru.prompts.base` for the generic one.
+
+**The index `nix-locate` reads.** The Nix prompt's first step needs the
+nix-index file database, and building it locally takes hours:
+[nix-index-database](https://github.com/nix-community/nix-index-database)
+ships a prebuilt one, refreshed from Hydra's cache.
+
+```nix
+# flake.nix
+nix-index-database.url = "github:nix-community/nix-index-database";
+nix-index-database.inputs.nixpkgs.follows = "nixpkgs";
+```
+
+```nix
+# configuration.nix
+imports = [ inputs.nix-index-database.nixosModules.default ];
+```
+
+```nix
+# home-manager configuration
+imports = [ inputs.nix-index-database.homeModules.default ];
+# ours is the hook, so keep nix-index's own shell integration off
+programs.nix-index.enableBashIntegration = false;
+programs.nix-index.enableZshIntegration = false;
+programs.nix-index.enableFishIntegration = false;
+programs.nix-index.enableNushellIntegration = false;
+```
+
+Importing it is enough on NixOS: it installs `nix-index` with the prebuilt
+database and keeps `programs.command-not-found.enable` off — which the
+modules here set as well, so exactly one hook answers a missing command.
+Without any index, the prompt falls through to `nix search`.
 
 ## CLI
 
@@ -132,7 +165,7 @@ defined once and read from one place, the config file or the
 | `thinking`           | `PI_COMMAND_NOT_FOUND_THINKING`           | pi default                                              |
 | `pi-args`            | `PI_COMMAND_NOT_FOUND_PI_ARGS`            | –                                                       |
 | `session-root`       | `PI_COMMAND_NOT_FOUND_SESSION_ROOT`       | `$XDG_STATE_HOME/pi-command-not-found-adapter/sessions` |
-| `system-prompt-file` | `PI_COMMAND_NOT_FOUND_SYSTEM_PROMPT_FILE` | built-in `base.md`                                      |
+| `system-prompt-file` | `PI_COMMAND_NOT_FOUND_SYSTEM_PROMPT_FILE` | built-in `base.md`, the Nix prompt in the modules       |
 | `mcat`               | `PI_COMMAND_NOT_FOUND_MCAT`               | `mcat`                                                  |
 | `width`              | `PI_COMMAND_NOT_FOUND_WIDTH`              | terminal width                                          |
 | `retries`            | `PI_COMMAND_NOT_FOUND_RETRIES`            | `2`                                                     |
@@ -141,7 +174,12 @@ defined once and read from one place, the config file or the
 | `trace`              | `PI_COMMAND_NOT_FOUND_TRACE`              | –                                                       |
 
 `pi` and `mcat` are runtime dependencies taken from `PATH` unless set; the
-package deliberately does not pin them.
+package deliberately does not pin them. `mcat` is the one from
+[Skardyy/mcat](https://github.com/Skardyy/mcat) — GNU mtools ships an
+unrelated `mcat` that can shadow it, so the Nix modules point this setting
+at the package; elsewhere, check `mcat --help` and set it if you got the
+wrong one. With `RUST_LOG=debug` the adapter says why it fell back to a
+plain note.
 
 Two settings are lists: `pi-args` holds one argument per item (separated by
 newlines in its variable) and `system-prompt-file` one prompt file per item
@@ -225,7 +263,9 @@ an attribute with `nix-locate`, to check it with `nix eval` and to answer
 with `nix shell nixpkgs#<attr> -c …`. The `system-prompt-file` setting takes
 several files and concatenates them in order, so prompts can be composed;
 one file replaces the built-in base, and listing `passthru.prompts.base`
-first keeps the generic rules:
+first keeps the generic rules. The NixOS and home-manager modules default
+`systemPromptFile` to the Nix prompt, so a machine the package manages gets
+it without configuration:
 
 ```sh
 PI_COMMAND_NOT_FOUND_SYSTEM_PROMPT_FILE=…/prompts/nix.md:~/.config/command-not-found/local.md \

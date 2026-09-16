@@ -36,7 +36,8 @@ let
       description = ''
         Base prompts to send, joined with colons like `PATH`. The first one
         replaces the built-in `prompts/base.md`, so list
-        `passthru.prompts.base` first to keep the generic rules.
+        `passthru.prompts.base` first to keep the generic rules. Both
+        modules default this to the Nix prompt, `prompts/nix.md`.
       '';
     };
     mcat = {

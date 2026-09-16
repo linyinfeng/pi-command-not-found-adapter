@@ -12,6 +12,8 @@ let
   inherit (lib) mkIf mkEnableOption mkPackageOption;
 in
 {
+  imports = [ ./defaults.nix ];
+
   options.programs.pi-command-not-found-adapter = {
     enable = mkEnableOption "the pi command-not-found adapter";
     package = mkPackageOption pkgs "pi-command-not-found-adapter" { };
