@@ -26,6 +26,11 @@ in
     home.packages = [ cfg.package ];
     xdg.configFile."pi-command-not-found/config.json".source = configFile;
 
+    # As on NixOS: ours is the hook, so the home-manager one stands down.
+    programs.command-not-found.enable = lib.mkDefault false;
+
+    programs.pi-command-not-found-adapter.systemPromptFile = lib.mkDefault (vars.nixPrompt cfg);
+
     programs.bash.initExtra = mkIf config.programs.bash.enable ''
       source ${cfg.package.passthru.shell.bash}
     '';
