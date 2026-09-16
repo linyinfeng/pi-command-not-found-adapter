@@ -1,0 +1,80 @@
+name: Check
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+jobs:
+  nix-matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Install nix
+        uses: cachix/install-nix-action@v31
+        with:
+          github_access_token: "${{ secrets.GITHUB_TOKEN }}"
+      - id: set-matrix
+        name: Generate Nix matrix
+        run: |
+          set -Eeu
+          matrix="$(nix eval --json './nix/develop#githubActions.matrix')"
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+
+  nix-build:
+    name: ${{ matrix.name }} (${{ matrix.system }})
+    needs: nix-matrix
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.nix-matrix.outputs.matrix) }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Install nix
+        uses: cachix/install-nix-action@v31
+        with:
+          github_access_token: "${{ secrets.GITHUB_TOKEN }}"
+      - name: Setup cachix
+        uses: cachix/cachix-action@v17
+        with:
+          name: linyinfeng
+          signingKey: "${{ secrets.CACHIX_SIGNING_KEY }}"
+      - name: Build flake check
+        run: nix build --print-build-logs './nix/develop#${{ matrix.attr }}'
+
+  version:
+    needs: nix-build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Install nix
+        uses: cachix/install-nix-action@v31
+        with:
+          github_access_token: "${{ secrets.GITHUB_TOKEN }}"
+      - name: Setup cachix
+        uses: cachix/cachix-action@v17
+        with:
+          name: linyinfeng
+          signingKey: "${{ secrets.CACHIX_SIGNING_KEY }}"
+      - name: Check version
+        run: |
+          tag_version="${GITHUB_REF#refs/tags/v}"
+          binary_version="$(nix run .#pi-command-not-found-adapter -- --version | cut --delimiter=' ' --fields=2)"
+          echo "binary version = $binary_version"
+          echo "tag    version = $tag_version"
+          if [ "$binary_version" != "$tag_version" ]; then
+            echo "Version mismatch"
+            exit 1
+          fi

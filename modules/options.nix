@@ -71,7 +71,8 @@ let
   # values stay data: keys are the option names in kebab case (`pi-args`,
   # `system-prompt-files`, …), lists stay lists and nothing is ever turned
   # into shell code.
-  kebab = name: lib.toLower (lib.replaceStrings lib.upperChars (map (c: "-" + c) lib.upperChars) name);
+  kebab =
+    name: lib.toLower (lib.replaceStrings lib.upperChars (map (c: "-" + c) lib.upperChars) name);
   json =
     value:
     if lib.isList value then
@@ -80,7 +81,8 @@ let
       value
     else
       toString value;
-  settings = cfg: lib.mapAttrs' (name: _: lib.nameValuePair (kebab name) (json cfg.${name})) (set cfg);
+  settings =
+    cfg: lib.mapAttrs' (name: _: lib.nameValuePair (kebab name) (json cfg.${name})) (set cfg);
 in
 {
   # Spread into the module's `options`.

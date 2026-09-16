@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # bash: source this from ~/.bashrc
 
 export PI_COMMAND_NOT_FOUND_SESSION_ID="${PI_COMMAND_NOT_FOUND_SESSION_ID:-$(command-not-found-agent session-id)}"

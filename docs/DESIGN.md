@@ -12,12 +12,12 @@ answer goes back to the shell that asked.
 
 Two ways to talk to pi:
 
-| | `--mode json` | `--mode rpc` |
-| --- | --- | --- |
-| direction | one shot, stdout events | request/response on stdin + stdout events |
-| multi-turn | new process per turn (`--session`) | one process, repeated `prompt` commands |
-| turn boundary | process exit | `agent_settled` event |
-| dialogs | none | `extension_ui_request` needs an answer |
+|               | `--mode json`                      | `--mode rpc`                              |
+| ------------- | ---------------------------------- | ----------------------------------------- |
+| direction     | one shot, stdout events            | request/response on stdin + stdout events |
+| multi-turn    | new process per turn (`--session`) | one process, repeated `prompt` commands   |
+| turn boundary | process exit                       | `agent_settled` event                     |
+| dialogs       | none                               | `extension_ui_request` needs an answer    |
 
 `--mode rpc` is used because the retry requirement — "if the answer does
 not parse, ask again in the same session" — is a multi-turn loop. One
@@ -32,19 +32,19 @@ ignored.
 
 Versions and download figures from crates.io, September 2026.
 
-| Need | Choice | Version | Why |
-| --- | --- | --- | --- |
-| CLI + env | `clap` (derive, env) | 4.6 | `#[arg(long, env = …)]` gives every option an environment variable; the standard choice |
-| errors | `anyhow` | 1.0 | one error type for a binary; context added at each boundary |
-| logs | `tracing` + `tracing-subscriber` | 0.1 / 0.3 | warnings and debug diagnostics on stderr, `RUST_LOG` filter |
-| JSON | `serde` + `serde_json` | 1.0 | `Input`/`Answer` and pi's events |
-| XDG dirs | `dirs` | 7.0 | `state_dir()` gives `$XDG_STATE_HOME` (or `~/.local/state`) for the session and note storage, `config_dir()` the user's config directory |
-| configuration | `figment` | 0.10 | merges the `/etc/xdg` and `$XDG_CONFIG_HOME` JSON files into one config, so a module writes data and nothing has to be exported to the shell |
-| schema | `schemars` | 1.2 | derives JSON Schema from the same structs that deserialize the answer, so prompt and parser cannot drift |
-| terminal | `console` | 0.16 | one crate for TTY detection, terminal size, `move_cursor_up`, `clear_last_lines`, `clear_line`, styling, and East-Asian-aware `measure_text_width` |
-| terminal colours | `terminal-colorsaurus` | 1.0 | OSC 10/11 background query with a DA1 ordering heuristic, a raw-mode guard and a timeout; reuses stdio or `/dev/tty` |
-| signals | `signal-hook` | 0.4 | a signal iterator on its own thread; SIGINT remembered plus TERM/HUP exit |
-| processes | `std::process` + `std::thread` | – | no async runtime needed |
+| Need             | Choice                           | Version   | Why                                                                                                                                                |
+| ---------------- | -------------------------------- | --------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| CLI + env        | `clap` (derive, env)             | 4.6       | `#[arg(long, env = …)]` gives every option an environment variable; the standard choice                                                            |
+| errors           | `anyhow`                         | 1.0       | one error type for a binary; context added at each boundary                                                                                        |
+| logs             | `tracing` + `tracing-subscriber` | 0.1 / 0.3 | warnings and debug diagnostics on stderr, `RUST_LOG` filter                                                                                        |
+| JSON             | `serde` + `serde_json`           | 1.0       | `Input`/`Answer` and pi's events                                                                                                                   |
+| XDG dirs         | `dirs`                           | 7.0       | `state_dir()` gives `$XDG_STATE_HOME` (or `~/.local/state`) for the session and note storage, `config_dir()` the user's config directory           |
+| configuration    | `figment`                        | 0.10      | merges the `/etc/xdg` and `$XDG_CONFIG_HOME` JSON files into one config, so a module writes data and nothing has to be exported to the shell       |
+| schema           | `schemars`                       | 1.2       | derives JSON Schema from the same structs that deserialize the answer, so prompt and parser cannot drift                                           |
+| terminal         | `console`                        | 0.16      | one crate for TTY detection, terminal size, `move_cursor_up`, `clear_last_lines`, `clear_line`, styling, and East-Asian-aware `measure_text_width` |
+| terminal colours | `terminal-colorsaurus`           | 1.0       | OSC 10/11 background query with a DA1 ordering heuristic, a raw-mode guard and a timeout; reuses stdio or `/dev/tty`                               |
+| signals          | `signal-hook`                    | 0.4       | a signal iterator on its own thread; SIGINT remembered plus TERM/HUP exit                                                                          |
+| processes        | `std::process` + `std::thread`   | –         | no async runtime needed                                                                                                                            |
 
 Rejected alternatives:
 
@@ -143,8 +143,7 @@ pipe here), `termbg` hardcodes stdio and pulls in an async runtime, and
   not persist there; fish applies them in the current shell.
 - **Progress.** A braille spinner ticks at 10 Hz while the turn runs, `💭`
   accumulates on each thinking block, and tool calls appear as clipped
-  `🔧name: argument` lines in a rolling block of `tool-lines` (default
-  5) that is redrawn in place and erased before the note is printed.
+  `🔧name: argument` lines in a rolling block of `tool-lines` (default 5) that is redrawn in place and erased before the note is printed.
 - **Exit status.** 0 once an answer was produced (even an empty one), 1
   when pi failed or the answer never parsed, 130 on Ctrl-C — an interrupt
   anywhere in the turn stops it, and one that arrives while the note is

@@ -1,4 +1,9 @@
-{ config, lib, pkgs, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
 
 let
   cfg = config.programs.pi-command-not-found-adapter;
@@ -7,12 +12,11 @@ let
   inherit (lib) mkIf mkEnableOption mkPackageOption;
 in
 {
-  options.programs.pi-command-not-found-adapter =
-    {
-      enable = mkEnableOption "the pi command-not-found adapter";
-      package = mkPackageOption pkgs "pi-command-not-found-adapter" { };
-    }
-    // vars.options;
+  options.programs.pi-command-not-found-adapter = {
+    enable = mkEnableOption "the pi command-not-found adapter";
+    package = mkPackageOption pkgs "pi-command-not-found-adapter" { };
+  }
+  // vars.options;
 
   config = mkIf cfg.enable {
     # The settings are a JSON file the adapter finds on XDG_CONFIG_DIRS, so
@@ -31,10 +35,12 @@ in
     programs.fish.interactiveShellInit = mkIf config.programs.fish.enable ''
       source ${cfg.package.passthru.shell.fish}
     '';
-    programs.nushell.autoloads = mkIf config.programs.nushell.enable (lib.mkAfter [
-      (pkgs.writeTextDir "share/nushell/vendor/autoload/10-command-not-found.nu" ''
-        source ${cfg.package.passthru.shell.nushell}
-      '')
-    ]);
+    programs.nushell.autoloads = mkIf config.programs.nushell.enable (
+      lib.mkAfter [
+        (pkgs.writeTextDir "share/nushell/vendor/autoload/10-command-not-found.nu" ''
+          source ${cfg.package.passthru.shell.nushell}
+        '')
+      ]
+    );
   };
 }

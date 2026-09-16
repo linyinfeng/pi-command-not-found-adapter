@@ -6,116 +6,31 @@
   outputs =
     { self, nixpkgs }:
     let
+      inherit (nixpkgs) lib;
+      inherit (lib) fix listToAttrs nameValuePair;
       systems = [
         "x86_64-linux"
         "aarch64-linux"
       ];
-      eachSystem = f: nixpkgs.lib.genAttrs systems (system: f nixpkgs.legacyPackages.${system});
-      version = (nixpkgs.lib.importTOML ./Cargo.toml).package.version;
+      mkPkgs = system: import nixpkgs { inherit system; };
+      mkPackages =
+        system:
+        fix (packages: {
+          pi-command-not-found-adapter = (mkPkgs system).callPackage ./package.nix { };
+          default = packages.pi-command-not-found-adapter;
+        });
     in
     {
+      packages = listToAttrs (map (system: nameValuePair system (mkPackages system)) systems);
+
+      checks = self.packages;
+
+      overlays.default = final: _prev: {
+        pi-command-not-found-adapter = final.callPackage ./package.nix { };
+      };
+
       # Modules take pkgs from their evaluation context (NixOS / home-manager).
       nixosModules.default = import ./modules/nixos.nix;
       homeManagerModules.default = import ./modules/home-manager.nix;
-
-      # The adapter is not in nixpkgs; the overlay is what makes
-      # pkgs.pi-command-not-found-adapter exist, which is the modules'
-      # package default. Users add it like any other overlay.
-      overlays.default = final: prev: {
-        pi-command-not-found-adapter = self.packages.${final.system}.default;
-      };
-
-      packages = eachSystem (pkgs: rec {
-        pi-command-not-found-adapter = pkgs.rustPlatform.buildRustPackage (finalAttrs: {
-          pname = "pi-command-not-found-adapter";
-          inherit version;
-          src = self;
-          cargoLock.lockFile = ./Cargo.lock;
-          # The integration tests drive a fake pi, which is a shell script.
-          nativeCheckInputs = [ pkgs.bash ];
-          postInstall = ''
-            shells=$out/share/pi-command-not-found-adapter/shell
-            install -Dm644 shell/bash.sh "$shells/bash.sh"
-            install -Dm644 shell/zsh.zsh "$shells/zsh.zsh"
-            install -Dm644 shell/fish.fish "$shells/fish.fish"
-            install -Dm644 shell/nushell.nu "$shells/nushell.nu"
-
-            prompts=$out/share/pi-command-not-found-adapter/prompts
-            install -Dm644 prompts/base.md "$prompts/base.md"
-            install -Dm644 prompts/nix.md "$prompts/nix.md"
-
-            # fish and nushell autoload these from XDG_DATA_DIRS.
-            install -Dm644 shell/fish.fish \
-              $out/share/fish/vendor_conf.d/pi-command-not-found-adapter.fish
-            install -Dm644 shell/nushell.nu \
-              $out/share/nushell/vendor/autoload/pi-command-not-found-adapter.nu
-
-            # bash and zsh login shells read /etc/profile.d.
-            install -Dm644 shell/bash.sh \
-              $out/etc/profile.d/pi-command-not-found-adapter.sh
-          '';
-          passthru.shell = {
-            bash = "${finalAttrs.finalPackage}/share/pi-command-not-found-adapter/shell/bash.sh";
-            fish = "${finalAttrs.finalPackage}/share/pi-command-not-found-adapter/shell/fish.fish";
-            nushell = "${finalAttrs.finalPackage}/share/pi-command-not-found-adapter/shell/nushell.nu";
-            zsh = "${finalAttrs.finalPackage}/share/pi-command-not-found-adapter/shell/zsh.zsh";
-          };
-          passthru.prompts = {
-            base = "${finalAttrs.finalPackage}/share/pi-command-not-found-adapter/prompts/base.md";
-            nix = "${finalAttrs.finalPackage}/share/pi-command-not-found-adapter/prompts/nix.md";
-          };
-          meta = {
-            mainProgram = "command-not-found-agent";
-            license = pkgs.lib.licenses.mit;
-            platforms = pkgs.lib.platforms.linux;
-          };
-        });
-        default = pi-command-not-found-adapter;
-      });
-
-      devShells = eachSystem (pkgs: {
-        default = pkgs.mkShell {
-          packages = with pkgs; [
-            cargo
-            clippy
-            rust-analyzer
-            rustc
-            rustfmt
-          ];
-        };
-      });
-
-      checks = eachSystem (pkgs: {
-        inherit (self.packages.${pkgs.stdenv.hostPlatform.system}) pi-command-not-found-adapter;
-
-        # The modules hand the adapter a JSON config file, so the option names
-        # and the keys the adapter reads have to stay in step: this fails if a
-        # renamed option stops being understood.
-        config-file =
-          let
-            vars = import ./modules/options.nix { lib = pkgs.lib; };
-            prompt = pkgs.writeText "config-check-prompt.md" "a marker only this file has";
-            config = vars.configFile pkgs {
-              pi = null;
-              model = "some/model";
-              thinking = null;
-              piArgs = [ "--verbose" ];
-              sessionRoot = null;
-              systemPromptFile = [ prompt ];
-              mcat = null;
-              width = null;
-              retries = 3;
-              toolLines = null;
-              timeout = null;
-              trace = null;
-            };
-            agent = self.packages.${pkgs.stdenv.hostPlatform.system}.pi-command-not-found-adapter;
-          in
-          pkgs.runCommand "config-file" { } ''
-            ${agent}/bin/command-not-found-agent --config ${config} system-prompt > $out
-            grep -q "a marker only this file has" $out
-            grep -q "some/model" ${config}
-          '';
-      });
     };
 }

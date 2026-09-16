@@ -1,4 +1,9 @@
-{ config, lib, pkgs, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
 
 let
   cfg = config.programs.pi-command-not-found-adapter;
@@ -7,12 +12,11 @@ let
   inherit (lib) mkIf mkEnableOption mkPackageOption;
 in
 {
-  options.programs.pi-command-not-found-adapter =
-    {
-      enable = mkEnableOption "the pi command-not-found adapter";
-      package = mkPackageOption pkgs "pi-command-not-found-adapter" { };
-    }
-    // vars.options;
+  options.programs.pi-command-not-found-adapter = {
+    enable = mkEnableOption "the pi command-not-found adapter";
+    package = mkPackageOption pkgs "pi-command-not-found-adapter" { };
+  }
+  // vars.options;
 
   config = mkIf cfg.enable {
     # Same shape as the NixOS module: the settings are a JSON file, here in

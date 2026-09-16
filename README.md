@@ -125,20 +125,20 @@ Everything else is a setting rather than an argument of the call: it is
 defined once and read from one place, the config file or the
 `PI_COMMAND_NOT_FOUND_*` variable of the same name.
 
-| Setting (config key) | Variable | Default |
-| --- | --- | --- |
-| `pi` | `PI_COMMAND_NOT_FOUND_PI` | `pi` |
-| `model` | `PI_COMMAND_NOT_FOUND_MODEL` | pi default |
-| `thinking` | `PI_COMMAND_NOT_FOUND_THINKING` | pi default |
-| `pi-args` | `PI_COMMAND_NOT_FOUND_PI_ARGS` | – |
-| `session-root` | `PI_COMMAND_NOT_FOUND_SESSION_ROOT` | `$XDG_STATE_HOME/pi-command-not-found-adapter/sessions` |
-| `system-prompt-file` | `PI_COMMAND_NOT_FOUND_SYSTEM_PROMPT_FILE` | built-in `base.md` |
-| `mcat` | `PI_COMMAND_NOT_FOUND_MCAT` | `mcat` |
-| `width` | `PI_COMMAND_NOT_FOUND_WIDTH` | terminal width |
-| `retries` | `PI_COMMAND_NOT_FOUND_RETRIES` | `2` |
-| `tool-lines` | `PI_COMMAND_NOT_FOUND_TOOL_LINES` | `5` |
-| `timeout` | `PI_COMMAND_NOT_FOUND_TIMEOUT` | `600` |
-| `trace` | `PI_COMMAND_NOT_FOUND_TRACE` | – |
+| Setting (config key) | Variable                                  | Default                                                 |
+| -------------------- | ----------------------------------------- | ------------------------------------------------------- |
+| `pi`                 | `PI_COMMAND_NOT_FOUND_PI`                 | `pi`                                                    |
+| `model`              | `PI_COMMAND_NOT_FOUND_MODEL`              | pi default                                              |
+| `thinking`           | `PI_COMMAND_NOT_FOUND_THINKING`           | pi default                                              |
+| `pi-args`            | `PI_COMMAND_NOT_FOUND_PI_ARGS`            | –                                                       |
+| `session-root`       | `PI_COMMAND_NOT_FOUND_SESSION_ROOT`       | `$XDG_STATE_HOME/pi-command-not-found-adapter/sessions` |
+| `system-prompt-file` | `PI_COMMAND_NOT_FOUND_SYSTEM_PROMPT_FILE` | built-in `base.md`                                      |
+| `mcat`               | `PI_COMMAND_NOT_FOUND_MCAT`               | `mcat`                                                  |
+| `width`              | `PI_COMMAND_NOT_FOUND_WIDTH`              | terminal width                                          |
+| `retries`            | `PI_COMMAND_NOT_FOUND_RETRIES`            | `2`                                                     |
+| `tool-lines`         | `PI_COMMAND_NOT_FOUND_TOOL_LINES`         | `5`                                                     |
+| `timeout`            | `PI_COMMAND_NOT_FOUND_TIMEOUT`            | `600`                                                   |
+| `trace`              | `PI_COMMAND_NOT_FOUND_TRACE`              | –                                                       |
 
 `pi` and `mcat` are runtime dependencies taken from `PATH` unless set; the
 package deliberately does not pin them.
@@ -179,11 +179,11 @@ arguments.
 session id once, then calls `run` and sources the answer in the
 interactive shell.
 
-| Shell | File | Hook |
-| --- | --- | --- |
-| bash | `shell/bash.sh` | `command_not_found_handle` |
-| zsh | `shell/zsh.zsh` | `command_not_found_handler` |
-| fish | `shell/fish.fish` | `fish_command_not_found` |
+| Shell   | File               | Hook                                  |
+| ------- | ------------------ | ------------------------------------- |
+| bash    | `shell/bash.sh`    | `command_not_found_handle`            |
+| zsh     | `shell/zsh.zsh`    | `command_not_found_handler`           |
+| fish    | `shell/fish.fish`  | `fish_command_not_found`              |
 | nushell | `shell/nushell.nu` | `$env.config.hooks.command_not_found` |
 
 Two shell limits are worth knowing: fish wires the hook's stdout to stderr,
@@ -198,14 +198,14 @@ the current shell).
 
 The Nix package drops the hooks in the standard places:
 
-| Path | Used by |
-| --- | --- |
-| `bin/command-not-found-agent` | `PATH` |
-| `share/pi-command-not-found-adapter/shell/{bash.sh,zsh.zsh,fish.fish,nushell.nu}` | explicit `source` |
-| `share/fish/vendor_conf.d/pi-command-not-found-adapter.fish` | fish, from `XDG_DATA_DIRS` |
-| `share/nushell/vendor/autoload/pi-command-not-found-adapter.nu` | nushell's interactive session, from `XDG_DATA_DIRS` |
-| `etc/profile.d/pi-command-not-found-adapter.sh` | bash and zsh login shells |
-| `share/pi-command-not-found-adapter/prompts/{base,nix}.md` | the `system-prompt-file` setting |
+| Path                                                                              | Used by                                             |
+| --------------------------------------------------------------------------------- | --------------------------------------------------- |
+| `bin/command-not-found-agent`                                                     | `PATH`                                              |
+| `share/pi-command-not-found-adapter/shell/{bash.sh,zsh.zsh,fish.fish,nushell.nu}` | explicit `source`                                   |
+| `share/fish/vendor_conf.d/pi-command-not-found-adapter.fish`                      | fish, from `XDG_DATA_DIRS`                          |
+| `share/nushell/vendor/autoload/pi-command-not-found-adapter.nu`                   | nushell's interactive session, from `XDG_DATA_DIRS` |
+| `etc/profile.d/pi-command-not-found-adapter.sh`                                   | bash and zsh login shells                           |
+| `share/pi-command-not-found-adapter/prompts/{base,nix}.md`                        | the `system-prompt-file` setting                    |
 
 `passthru.shell.{bash,zsh,fish,nushell}` names the explicit-sourcing paths
 and `passthru.prompts.{base,nix}` the prompt files, for a NixOS or
@@ -257,7 +257,7 @@ The agent answers with exactly one JSON object; either field may be
 omitted:
 
 ```json
-{"markdown": "short note for the user", "source": "shell code"}
+{ "markdown": "short note for the user", "source": "shell code" }
 ```
 
 `source` is printed on stdout, unchanged, for the caller to source; the
@@ -297,31 +297,42 @@ was supplied, debug detail for the pi command and the history directory.
 
 ## Layout
 
-| Module | Role |
-| --- | --- |
-| `main.rs` | subcommand dispatch, wiring and exit status |
-| `cli.rs` | clap commands, flags and env |
-| `config.rs` | layered config files, filled into unset options |
-| `session.rs` | session id, paths, history files |
-| `protocol.rs` | `Input`/`Answer` types, schema, answer parsing |
-| `prompt.rs` | prompt assembly and the retry message |
-| `pi.rs` | `pi --mode rpc` process, event decoding |
-| `ask.rs` | turn loop, retry loop, tool summaries |
-| `ui.rs` | rolling progress block, spinner, clipping |
-| `markdown.rs` | mcat rendering with a plain-text fallback |
-| `signals.rs` | SIGINT remembered, TERM/HUP exit |
+| Module        | Role                                            |
+| ------------- | ----------------------------------------------- |
+| `main.rs`     | subcommand dispatch, wiring and exit status     |
+| `cli.rs`      | clap commands, flags and env                    |
+| `config.rs`   | layered config files, filled into unset options |
+| `session.rs`  | session id, paths, history files                |
+| `protocol.rs` | `Input`/`Answer` types, schema, answer parsing  |
+| `prompt.rs`   | prompt assembly and the retry message           |
+| `pi.rs`       | `pi --mode rpc` process, event decoding         |
+| `ask.rs`      | turn loop, retry loop, tool summaries           |
+| `ui.rs`       | rolling progress block, spinner, clipping       |
+| `markdown.rs` | mcat rendering with a plain-text fallback       |
+| `signals.rs`  | SIGINT remembered, TERM/HUP exit                |
 
 See [docs/DESIGN.md](docs/DESIGN.md) for the crate selection and design
 rationale.
 
 ## Development
 
+The root flake only packages the adapter and its modules; the development
+environment, the formatter and the checks live in `nix/develop`, which is
+also what `.envrc` loads — `direnv allow` once is enough:
+
 ```sh
-nix develop -c cargo test
-nix develop -c cargo clippy --all-targets
-nix build .#          # builds the package and runs the tests in the sandbox
-dev/pi.sh             # interactive pi with the handler's prompt and session
+nix develop ./nix/develop -c cargo test
+nix develop ./nix/develop -c cargo clippy --all-targets
+treefmt                        # in the dev shell: nixfmt, rustfmt, prettier, shellcheck, actionlint
+nix build .#                   # builds the package and runs the tests in the sandbox
+nix flake check ./nix/develop  # package, config-file, hooks, formatting
+dev/pi.sh                      # interactive pi with the handler's prompt and session
 ```
+
+Two of those checks guard what the modules hand over: `config-file` feeds a
+module-generated config to the binary and `hooks` parses each shell hook in
+its own shell. CI (`.github/workflows/check.yml`) runs every check from the
+matrix `nix/develop` generates.
 
 `dev/pi.sh` enters an interactive pi configured like the handler, so a
 prompt change can be tried by hand: it reuses the same system prompt,
