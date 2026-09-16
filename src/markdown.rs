@@ -4,6 +4,8 @@ use std::process::{Command, Stdio};
 use std::thread;
 use std::time::Duration;
 
+use tracing::debug;
+
 use terminal_colorsaurus::{QueryOptions, ThemeMode, theme_mode};
 
 use crate::config::Config;
@@ -44,8 +46,9 @@ fn mcat(text: &str, config: &Config, ui: &Ui) -> bool {
     command
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
-        .stderr(Stdio::null());
+        .stderr(Stdio::piped());
     let Ok(mut child) = command.spawn() else {
+        debug!("{} is not runnable; plain note", config.mcat);
         return false;
     };
     if let Some(mut stdin) = child.stdin.take() {
@@ -55,9 +58,22 @@ fn mcat(text: &str, config: &Config, ui: &Ui) -> bool {
         });
     }
     let Ok(output) = child.wait_with_output() else {
+        debug!("{} did not finish; plain note", config.mcat);
         return false;
     };
     if !output.status.success() {
+        // The stderr is mcat's own complaint (a wrong binary in PATH, an
+        // unknown theme): the fallback is silent otherwise and this is the
+        // only place it can be seen, with `RUST_LOG=debug`.
+        debug!(
+            "{} failed ({}); plain note",
+            config.mcat,
+            String::from_utf8_lossy(&output.stderr).trim()
+        );
+        return false;
+    }
+    if output.stdout.is_empty() {
+        debug!("{} rendered nothing; plain note", config.mcat);
         return false;
     }
     let mut stderr = std::io::stderr();

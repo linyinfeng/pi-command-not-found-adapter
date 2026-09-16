@@ -174,7 +174,12 @@ defined once and read from one place, the config file or the
 | `trace`              | `PI_COMMAND_NOT_FOUND_TRACE`              | –                                                       |
 
 `pi` and `mcat` are runtime dependencies taken from `PATH` unless set; the
-package deliberately does not pin them.
+package deliberately does not pin them. `mcat` is the one from
+[Skardyy/mcat](https://github.com/Skardyy/mcat) — GNU mtools ships an
+unrelated `mcat` that can shadow it, so the Nix modules point this setting
+at the package; elsewhere, check `mcat --help` and set it if you got the
+wrong one. With `RUST_LOG=debug` the adapter says why it fell back to a
+plain note.
 
 Two settings are lists: `pi-args` holds one argument per item (separated by
 newlines in its variable) and `system-prompt-file` one prompt file per item
