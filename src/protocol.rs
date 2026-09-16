@@ -6,7 +6,7 @@ use serde_json::Value;
 #[derive(Debug, Clone, Serialize, JsonSchema)]
 pub struct Input {
     /// Session id of this shell conversation; also exported as
-    /// COMMAND_NOT_FOUND_SESSION_ID.
+    /// PI_COMMAND_NOT_FOUND_SESSION_ID.
     pub session_id: String,
     /// Shell that will source the answer, e.g. bash, zsh, fish, nu.
     pub shell: String,

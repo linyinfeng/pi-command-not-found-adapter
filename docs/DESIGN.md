@@ -38,7 +38,8 @@ Versions and download figures from crates.io, September 2026.
 | errors | `anyhow` | 1.0 | one error type for a binary; context added at each boundary |
 | logs | `tracing` + `tracing-subscriber` | 0.1 / 0.3 | warnings and debug diagnostics on stderr, `RUST_LOG` filter |
 | JSON | `serde` + `serde_json` | 1.0 | `Input`/`Answer` and pi's events |
-| XDG dirs | `dirs` | 7.0 | `state_dir()` gives `$XDG_STATE_HOME` (or `~/.local/state`) for the session and note storage |
+| XDG dirs | `dirs` | 7.0 | `state_dir()` gives `$XDG_STATE_HOME` (or `~/.local/state`) for the session and note storage, `config_dir()` the user's config directory |
+| configuration | `figment` | 0.10 | merges the `/etc/xdg` and `$XDG_CONFIG_HOME` JSON files into one config, so a module writes data and nothing has to be exported to the shell |
 | schema | `schemars` | 1.2 | derives JSON Schema from the same structs that deserialize the answer, so prompt and parser cannot drift |
 | terminal | `console` | 0.16 | one crate for TTY detection, terminal size, `move_cursor_up`, `clear_last_lines`, `clear_line`, styling, and East-Asian-aware `measure_text_width` |
 | terminal colours | `terminal-colorsaurus` | 1.0 | OSC 10/11 background query with a DA1 ordering heuristic, a raw-mode guard and a timeout; reuses stdio or `/dev/tty` |
@@ -82,7 +83,7 @@ paging, `--silent` drops the loading bars.
 kitty/iTerm2/sixel and reports terminal capabilities, which the `mdcat`
 package does not. The price is style — `mcat` uses truecolor and background
 colors and is themed (`MCAT_THEME`, `-t/--theme`) — and the CLI is the
-contract: `--mcat` points at the binary, so a wrapper can adjust the theme.
+contract: the `mcat` setting points at the binary, so a wrapper can adjust the theme.
 A missing or failing renderer falls back to the raw text.
 
 `termimad` (in-process, `crossterm`-based) was the runner-up: no runtime
@@ -116,7 +117,7 @@ pipe here), `termbg` hardcodes stdio and pulls in an async runtime, and
 ## Behaviour
 
 - **Sessions.** One conversation per shell: the shell init exports
-  `COMMAND_NOT_FOUND_SESSION_ID` (which `command-not-found-agent session-id`
+  `PI_COMMAND_NOT_FOUND_SESSION_ID` (which `command-not-found-agent session-id`
   can produce), the adapter keeps pi's session at
   `$XDG_STATE_HOME/pi-command-not-found-adapter/sessions/<session_id>/session.jsonl`
   and resumes it on every invocation, so a thread continues across
@@ -131,7 +132,7 @@ pipe here), `termbg` hardcodes stdio and pulls in an async runtime, and
   assistant text for JSON objects and keeps the last one that carries at
   least one of the two fields. Anything else — an unrelated object, a
   mistyped field — is not an answer, and the adapter asks again in the
-  same session (`--retries`, default 2) instead of starting a new
+  same session (`retries`, default 2) instead of starting a new
   conversation.
 - **Sourced answers.** `source` is printed on stdout unchanged; the caller
   sources it, so it runs in the user's interactive shell with the user's
@@ -142,7 +143,7 @@ pipe here), `termbg` hardcodes stdio and pulls in an async runtime, and
   not persist there; fish applies them in the current shell.
 - **Progress.** A braille spinner ticks at 10 Hz while the turn runs, `💭`
   accumulates on each thinking block, and tool calls appear as clipped
-  `🔧name: argument` lines in a rolling block of `--tool-lines` (default
+  `🔧name: argument` lines in a rolling block of `tool-lines` (default
   5) that is redrawn in place and erased before the note is printed.
 - **Exit status.** 0 once an answer was produced (even an empty one), 1
   when pi failed or the answer never parsed, 130 on Ctrl-C — an interrupt

@@ -152,7 +152,7 @@ The Nix package drops the hooks in the standard places:
 | `share/fish/vendor_conf.d/pi-command-not-found-adapter.fish` | fish, from `XDG_DATA_DIRS` |
 | `share/nushell/vendor/autoload/pi-command-not-found-adapter.nu` | nushell's interactive session, from `XDG_DATA_DIRS` |
 | `etc/profile.d/pi-command-not-found-adapter.sh` | bash and zsh login shells |
-| `share/pi-command-not-found-adapter/prompts/{base,nix}.md` | `--system-prompt-file` |
+| `share/pi-command-not-found-adapter/prompts/{base,nix}.md` | the `system-prompt-file` setting |
 
 `passthru.shell.{bash,zsh,fish,nushell}` names the explicit-sourcing paths
 and `passthru.prompts.{base,nix}` the prompt files, for a NixOS or
@@ -169,27 +169,15 @@ programs.bash.interactiveShellInit = ''
 The built-in prompt (`prompts/base.md`) is generic; `prompts/nix.md` is a
 full replacement written for a NixOS machine — it teaches the agent to find
 an attribute with `nix-locate`, to check it with `nix eval` and to answer
-with `nix shell nixpkgs#<attr> -c …`. `--system-prompt-file` is repeatable
-and the files are concatenated in order, so prompts can be composed; one
-file replaces the built-in base, and listing
-`passthru.prompts.base` first keeps the generic rules:
+with `nix shell nixpkgs#<attr> -c …`. The `system-prompt-file` setting takes
+several files and concatenates them in order, so prompts can be composed;
+one file replaces the built-in base, and listing `passthru.prompts.base`
+first keeps the generic rules:
 
 ```sh
-command-not-found-agent run \
-  --system-prompt-file …/prompts/nix.md \
-  --system-prompt-file ~/.config/command-not-found/local.md \
-  --shell bash -- cowsay hi
+PI_COMMAND_NOT_FOUND_SYSTEM_PROMPT_FILE=…/prompts/nix.md:~/.config/command-not-found/local.md \
+  command-not-found-agent run --shell bash -- cowsay hi
 ```
-
-`COMMAND_NOT_FOUND_SYSTEM_PROMPT_FILE` takes the same list separated by
-colons, like `PATH`.
-
-`pi` and `mcat` are runtime dependencies and are taken from `PATH` (or
-`--pi`/`--mcat`); the package deliberately does not pin them.
-
-The options that repeat in the environment are lists:
-`COMMAND_NOT_FOUND_SYSTEM_PROMPT_FILE` is split on `:` (like `PATH`) and
-`COMMAND_NOT_FOUND_PI_ARGS` on newlines.
 
 On a light terminal the note is rendered with mcat's light theme: the
 adapter asks the terminal for its background (OSC 11), and passes
@@ -226,14 +214,14 @@ Both schemas are generated from the Rust types with `schemars` — the doc
 comments become the field descriptions — and appended to the system
 prompt, so the prompt cannot drift from the parser. When the answer does
 not parse, the adapter asks again **in the same session**
-(`--retries` times) instead of starting over.
+(`retries` times) instead of starting over.
 
 ## System prompt
 
 The prompt is assembled from three parts:
 
 1. the base prompts — `prompts/base.md` by default, or the files given to
-   `--system-prompt-file` concatenated in order;
+   the `system-prompt-file` setting concatenated in order;
 2. the adapter-owned context — `prompts/history.md`: what the session file
    and the history directory are, and how to keep notes;
 3. the generated input and answer schemas.
@@ -260,6 +248,7 @@ was supplied, debug detail for the pi command and the history directory.
 | --- | --- |
 | `main.rs` | subcommand dispatch, wiring and exit status |
 | `cli.rs` | clap commands, flags and env |
+| `config.rs` | layered config files, filled into unset options |
 | `session.rs` | session id, paths, history files |
 | `protocol.rs` | `Input`/`Answer` types, schema, answer parsing |
 | `prompt.rs` | prompt assembly and the retry message |
@@ -284,5 +273,5 @@ dev/pi.sh             # interactive pi with the handler's prompt and session
 `dev/pi.sh` enters an interactive pi configured like the handler, so a
 prompt change can be tried by hand: it reuses the same system prompt,
 session and notes directory, and accepts pi's own options. Set
-`COMMAND_NOT_FOUND_SESSION_ID` for another session and
-`COMMAND_NOT_FOUND_SYSTEM_PROMPT_FILE` for other base prompts.
+`PI_COMMAND_NOT_FOUND_SESSION_ID` for another session and
+`PI_COMMAND_NOT_FOUND_SYSTEM_PROMPT_FILE` for other base prompts.

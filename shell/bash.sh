@@ -1,6 +1,6 @@
 # bash: source this from ~/.bashrc
 
-export COMMAND_NOT_FOUND_SESSION_ID="${COMMAND_NOT_FOUND_SESSION_ID:-$(command-not-found-agent session-id)}"
+export PI_COMMAND_NOT_FOUND_SESSION_ID="${PI_COMMAND_NOT_FOUND_SESSION_ID:-$(command-not-found-agent session-id)}"
 
 command_not_found_handle() {
   # Without the binary the hook would recurse on itself; report 127 instead.

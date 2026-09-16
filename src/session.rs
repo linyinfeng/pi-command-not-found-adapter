@@ -8,6 +8,7 @@ use anyhow::{Context, Result};
 use tracing::{debug, warn};
 
 use crate::cli::Run;
+use crate::config::Config;
 
 const DIR_MODE: u32 = 0o700;
 const FILE_MODE: u32 = 0o600;
@@ -21,7 +22,7 @@ pub struct Session {
 }
 
 impl Session {
-    pub fn resolve(args: &Run) -> Result<Self> {
+    pub fn resolve(args: &Run, config: &Config) -> Result<Self> {
         let id = sanitize(args.session_id.as_deref().unwrap_or_default());
         let id = if id.is_empty() {
             let id = random_id();
@@ -33,7 +34,7 @@ impl Session {
         let state = dirs::state_dir()
             .context("cannot determine the XDG state directory")?
             .join("pi-command-not-found-adapter");
-        let root = args
+        let root = config
             .session_root
             .clone()
             .unwrap_or_else(|| state.join("sessions"));

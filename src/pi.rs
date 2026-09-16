@@ -12,7 +12,7 @@ use serde_json::{Value, json};
 use tracing::{debug, warn};
 
 use crate::ask::Event;
-use crate::cli::Run;
+use crate::config::Config;
 use crate::session::Session;
 
 /// A running `pi --mode rpc` process.
@@ -25,8 +25,8 @@ pub struct Agent {
 }
 
 impl Agent {
-    pub fn spawn(args: &Run, session: &Session, system_prompt: &str) -> Result<Self> {
-        let mut command = Command::new(&args.pi);
+    pub fn spawn(config: &Config, session: &Session, system_prompt: &str) -> Result<Self> {
+        let mut command = Command::new(&config.pi);
         command
             .arg("--mode")
             .arg("rpc")
@@ -35,36 +35,36 @@ impl Agent {
             .arg(session.session_file())
             .arg("--append-system-prompt")
             .arg(system_prompt);
-        if let Some(model) = &args.model {
+        if let Some(model) = &config.model {
             command.arg("--model").arg(model);
         }
-        if let Some(thinking) = &args.thinking {
+        if let Some(thinking) = &config.thinking {
             command.arg("--thinking").arg(thinking);
         }
-        command.args(&args.pi_args);
+        command.args(&config.pi_args);
         debug!(
             "{} --mode rpc --session {} (model {:?})",
-            args.pi,
+            config.pi,
             session.session_file().display(),
-            args.model
+            config.model
         );
         let mut child = command
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::inherit())
             .spawn()
-            .with_context(|| format!("failed to start {}", args.pi))?;
+            .with_context(|| format!("failed to start {}", config.pi))?;
         let stdin = child.stdin.take().context("pi stdin missing")?;
         let stdout = child.stdout.take().context("pi stdout missing")?;
         let stdin = Arc::new(Mutex::new(stdin));
         let (sender, events) = channel();
-        let reader = spawn_reader(stdout, Arc::clone(&stdin), sender, args.trace.clone());
+        let reader = spawn_reader(stdout, Arc::clone(&stdin), sender, config.trace.clone());
         Ok(Self {
             child,
             stdin,
             events,
             reader: Some(reader),
-            timeout: Duration::from_secs(args.timeout),
+            timeout: Duration::from_secs(config.timeout),
         })
     }
 

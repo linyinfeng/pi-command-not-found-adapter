@@ -6,9 +6,14 @@ use clap::{Args, Parser, Subcommand};
 #[command(
     name = "command-not-found-agent",
     version,
-    about = "Answer a command the shell could not find with code it can source"
+    about = "Answer a command the shell could not find with code it can source",
+    after_help = "Settings (the model, the prompts, the timeouts, …) are not command line options:\n$XDG_CONFIG_HOME/pi-command-not-found/config.json and the PI_COMMAND_NOT_FOUND_*\nvariables carry them, so a shell only has to run `run --shell <shell>`."
 )]
 pub struct Cli {
+    /// Merge one more config file over the XDG ones
+    #[arg(long, global = true, value_name = "FILE")]
+    pub config: Option<PathBuf>,
+
     #[command(subcommand)]
     pub command: Command,
 }
@@ -20,85 +25,25 @@ pub enum Command {
     /// Print a new session id, for a shell to export
     SessionId,
     /// Print the system prompt the handler sends to pi
-    SystemPrompt(PromptArgs),
+    SystemPrompt,
+    /// Print the settings the adapter resolved from every layer
+    Config,
 }
 
-/// Which base prompts to use; shared by `run` and `system-prompt`.
-#[derive(Debug, Args)]
-pub struct PromptArgs {
-    /// Replace the built-in base prompt; repeat for several files
-    #[arg(
-        long = "system-prompt-file",
-        env = "COMMAND_NOT_FOUND_SYSTEM_PROMPT_FILE",
-        value_delimiter = ':'
-    )]
-    pub system_prompt_files: Vec<PathBuf>,
-}
-
+/// What the caller has to say per invocation; everything else is a setting.
 #[derive(Debug, Args)]
 pub struct Run {
     /// The command line the user typed, after `--`
     #[arg(last = true, required = true, num_args = 1.., allow_hyphen_values = true)]
     pub input: Vec<String>,
 
-    #[command(flatten)]
-    pub prompt: PromptArgs,
-
-    /// Session id; defaults to a random UUID
-    #[arg(long, env = "COMMAND_NOT_FOUND_SESSION_ID")]
-    pub session_id: Option<String>,
-
-    /// Directory holding the per-session directories
-    #[arg(long, env = "COMMAND_NOT_FOUND_SESSION_ROOT")]
-    pub session_root: Option<PathBuf>,
-
-    /// pi executable to drive
-    #[arg(long, env = "COMMAND_NOT_FOUND_PI", default_value = "pi")]
-    pub pi: String,
-
-    /// Model passed to pi as --model (provider/id, optional :thinking)
-    #[arg(long, env = "COMMAND_NOT_FOUND_MODEL")]
-    pub model: Option<String>,
-
-    /// Thinking level passed to pi as --thinking
-    #[arg(long, env = "COMMAND_NOT_FOUND_THINKING")]
-    pub thinking: Option<String>,
-
-    /// Extra argument for pi; repeat for several
-    #[arg(
-        long = "pi-arg",
-        env = "COMMAND_NOT_FOUND_PI_ARGS",
-        value_delimiter = '\n'
-    )]
-    pub pi_args: Vec<String>,
-
     /// Shell that will source the answer, e.g. bash, zsh, fish, nu
-    #[arg(long, env = "COMMAND_NOT_FOUND_SHELL", required = true)]
+    #[arg(long, env = "PI_COMMAND_NOT_FOUND_SHELL", required = true)]
     pub shell: String,
 
-    /// mcat executable used to render the note
-    #[arg(long, env = "COMMAND_NOT_FOUND_MCAT", default_value = "mcat")]
-    pub mcat: String,
-
-    /// Wrap width; defaults to the terminal width
-    #[arg(long, env = "COMMAND_NOT_FOUND_WIDTH")]
-    pub width: Option<usize>,
-
-    /// Extra pi turns when the answer does not parse
-    #[arg(long, env = "COMMAND_NOT_FOUND_RETRIES", default_value_t = 2)]
-    pub retries: u32,
-
-    /// Tool call lines kept in the progress block
-    #[arg(long, env = "COMMAND_NOT_FOUND_TOOL_LINES", default_value_t = 5)]
-    pub tool_lines: usize,
-
-    /// Seconds allowed per pi turn
-    #[arg(long, env = "COMMAND_NOT_FOUND_TIMEOUT", default_value_t = 600)]
-    pub timeout: u64,
-
-    /// Append every raw pi protocol line to this file
-    #[arg(long, env = "COMMAND_NOT_FOUND_TRACE")]
-    pub trace: Option<PathBuf>,
+    /// Session id; defaults to a random UUID
+    #[arg(long, env = "PI_COMMAND_NOT_FOUND_SESSION_ID")]
+    pub session_id: Option<String>,
 }
 
 #[cfg(test)]
@@ -126,27 +71,58 @@ mod tests {
     }
 
     #[test]
+    fn config_takes_no_arguments() {
+        let cli = Cli::parse_from(["agent", "config"]);
+        assert!(matches!(cli.command, Command::Config));
+    }
+
+    #[test]
     fn session_id_takes_no_arguments() {
         let cli = Cli::parse_from(["agent", "session-id"]);
         assert!(matches!(cli.command, Command::SessionId));
     }
 
     #[test]
-    fn system_prompt_takes_the_base_prompts() {
-        let cli = Cli::parse_from([
-            "agent",
-            "system-prompt",
-            "--system-prompt-file",
-            "a.md",
-            "--system-prompt-file",
-            "b.md",
+    fn config_can_come_before_or_after_the_subcommand() {
+        for argv in [
+            [
+                "agent",
+                "--config",
+                "extra.json",
+                "run",
+                "--shell",
+                "bash",
+                "--",
+                "ls",
+            ],
+            [
+                "agent",
+                "run",
+                "--config",
+                "extra.json",
+                "--shell",
+                "bash",
+                "--",
+                "ls",
+            ],
+        ] {
+            let cli = Cli::parse_from(argv);
+            assert_eq!(
+                cli.config.as_deref(),
+                Some(std::path::Path::new("extra.json"))
+            );
+        }
+    }
+
+    #[test]
+    fn settings_are_not_options() {
+        // They come from the config file or the environment, never from argv.
+        let setting = Cli::try_parse_from([
+            "agent", "run", "--shell", "bash", "--model", "x", "--", "cowsay",
         ]);
-        let Command::SystemPrompt(args) = cli.command else {
-            panic!("expected system-prompt");
-        };
-        assert_eq!(
-            args.system_prompt_files,
-            [PathBuf::from("a.md"), PathBuf::from("b.md")]
-        );
+        assert!(setting.is_err(), "--model is not an option any more");
+        let prompt =
+            Cli::try_parse_from(["agent", "system-prompt", "--system-prompt-file", "a.md"]);
+        assert!(prompt.is_err(), "prompt files are a setting too");
     }
 }

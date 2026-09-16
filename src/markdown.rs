@@ -6,7 +6,7 @@ use std::time::Duration;
 
 use terminal_colorsaurus::{QueryOptions, ThemeMode, theme_mode};
 
-use crate::cli::Run;
+use crate::config::Config;
 use crate::ui::{Ui, printable};
 
 /// mcat's only light theme; the rest are dark.
@@ -16,19 +16,19 @@ const LIGHT_THEME: &str = "makurai-light";
 const TIMEOUT: Duration = Duration::from_millis(300);
 
 /// Render the note with mcat, falling back to the raw text.
-pub fn render(text: &str, args: &Run, ui: &mut Ui) {
+pub fn render(text: &str, config: &Config, ui: &mut Ui) {
     if text.trim().is_empty() {
         return;
     }
     ui.clear();
-    if mcat(text, args, ui) {
+    if mcat(text, config, ui) {
         return;
     }
     ui.line(printable(text).trim_end());
 }
 
-fn mcat(text: &str, args: &Run, ui: &Ui) -> bool {
-    let mut command = Command::new(&args.mcat);
+fn mcat(text: &str, config: &Config, ui: &Ui) -> bool {
+    let mut command = Command::new(&config.mcat);
     command
         // Never page, never show loading bars, and wrap to our width.
         .arg("-P")

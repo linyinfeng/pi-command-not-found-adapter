@@ -10,7 +10,11 @@ const BIN: &str = env!("CARGO_BIN_EXE_command-not-found-agent");
 /// conversation, as a resumed session might replay.
 fn fake_pi(dir: &Path, turns: &[&str], stale: bool) -> PathBuf {
     let path = dir.join("pi");
-    let mut script = format!("#!{}\nturn=0\nwhile IFS= read -r line; do\n", shell());
+    let mut script = format!(
+        "#!{}\nprintf '%s\\n' \"$@\" > {}/pi-args\nturn=0\nwhile IFS= read -r line; do\n",
+        shell(),
+        dir.display()
+    );
     script.push_str("  case \"$line\" in *'\"prompt\"'*)\n");
     script.push_str("    turn=$((turn+1))\n");
     if stale {
@@ -38,23 +42,36 @@ fn fake_pi(dir: &Path, turns: &[&str], stale: bool) -> PathBuf {
     path
 }
 
-fn run(dir: &Path, pi: &Path, extra: &[&str]) -> Output {
-    Command::new(BIN)
+/// The adapter takes its settings from the environment (and the config file),
+/// so the harness hands them over that way too, exactly like a shell does.
+fn run(dir: &Path, pi: &Path) -> Output {
+    run_with(dir, pi, &[])
+}
+
+fn run_with(dir: &Path, pi: &Path, envs: &[(&str, &str)]) -> Output {
+    let mut command = Command::new(BIN);
+    command
         .arg("run")
         .arg("--shell")
         .arg("bash")
-        .arg("--pi")
-        .arg(pi)
-        .arg("--session-root")
-        .arg(dir.join("sessions"))
-        .arg("--mcat")
-        .arg("/nonexistent-mcat")
-        .args(extra)
+        .env("PI_COMMAND_NOT_FOUND_PI", pi)
+        .env("PI_COMMAND_NOT_FOUND_SESSION_ROOT", dir.join("sessions"))
+        .env("PI_COMMAND_NOT_FOUND_MCAT", "/nonexistent-mcat")
         .arg("--")
         .arg("cowsay")
-        .arg("hi")
-        .output()
-        .unwrap()
+        .arg("hi");
+    for (name, value) in envs {
+        command.env(name, value);
+    }
+    command.output().unwrap()
+}
+
+/// What pi was started with, as the fake pi recorded it.
+fn pi_args(dir: &Path) -> Vec<String> {
+    read(&dir.join("pi-args"))
+        .lines()
+        .map(str::to_string)
+        .collect()
 }
 
 fn temp_dir(name: &str) -> PathBuf {
@@ -75,7 +92,7 @@ fn retries_then_prints_the_source() {
         ],
         false,
     );
-    let output = run(&dir, &pi, &[]);
+    let output = run(&dir, &pi);
     assert!(output.status.success(), "{:?}", output);
     assert_eq!(
         String::from_utf8_lossy(&output.stdout).trim(),
@@ -99,7 +116,7 @@ fn retries_then_prints_the_source() {
 fn omits_the_source_when_there_is_none() {
     let dir = temp_dir("nosource");
     let pi = fake_pi(&dir, &[r#"{"markdown":"just a note"}"#], false);
-    let output = run(&dir, &pi, &[]);
+    let output = run(&dir, &pi);
     assert!(output.status.success());
     assert!(output.stdout.is_empty(), "{:?}", output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);
@@ -114,7 +131,7 @@ fn omits_the_source_when_there_is_none() {
 fn fails_after_exhausting_retries() {
     let dir = temp_dir("fail");
     let pi = fake_pi(&dir, &["nope", "still nope", "nope again"], false);
-    let output = run(&dir, &pi, &[]);
+    let output = run(&dir, &pi);
     assert!(!output.status.success());
     assert_eq!(output.status.code(), Some(1));
     assert!(output.stdout.is_empty(), "{:?}", output.stdout);
@@ -128,7 +145,7 @@ fn ignores_messages_before_the_prompt_is_acknowledged() {
     // with nothing else to parse the run has to fail instead.
     let dir = temp_dir("stale");
     let pi = fake_pi(&dir, &["nothing useful this turn"], true);
-    let output = run(&dir, &pi, &[]);
+    let output = run(&dir, &pi);
     assert!(!output.status.success(), "{output:?}");
     assert!(
         String::from_utf8_lossy(&output.stdout).trim().is_empty(),
@@ -139,6 +156,139 @@ fn ignores_messages_before_the_prompt_is_acknowledged() {
         "{output:?}"
     );
     let _ = fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn a_config_file_fills_the_options() {
+    // The Nix modules hand over a JSON file and nothing else, so its values
+    // have to reach the pi command line.
+    let dir = temp_dir("config");
+    let pi = fake_pi(&dir, &[r#"{"markdown":"note","source":"echo hi"}"#], false);
+    let config = dir.join("config.json");
+    fs::write(
+        &config,
+        r#"{"model":"deepseek/x","pi-args":["--verbose","two words"],"retries":2}"#,
+    )
+    .unwrap();
+    let output = run_with(
+        &dir,
+        &pi,
+        &[("PI_COMMAND_NOT_FOUND_CONFIG", &config.display().to_string())],
+    );
+    assert!(output.status.success(), "{output:?}");
+    let args = pi_args(&dir);
+    assert!(
+        args.windows(2)
+            .any(|pair| pair == ["--model", "deepseek/x"]),
+        "{args:?}"
+    );
+    assert!(args.iter().any(|arg| arg == "--verbose"), "{args:?}");
+    assert!(args.iter().any(|arg| arg == "two words"), "{args:?}");
+    let _ = fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn the_command_line_wins_over_the_config_file() {
+    let dir = temp_dir("config-flag");
+    let pi = fake_pi(&dir, &[r#"{"markdown":"note","source":"echo hi"}"#], false);
+    let config = dir.join("config.json");
+    fs::write(&config, r#"{"model":"from-the-file"}"#).unwrap();
+    let output = run_with(
+        &dir,
+        &pi,
+        &[
+            ("PI_COMMAND_NOT_FOUND_CONFIG", &config.display().to_string()),
+            ("PI_COMMAND_NOT_FOUND_MODEL", "from-the-environment"),
+        ],
+    );
+    assert!(output.status.success(), "{output:?}");
+    let args = pi_args(&dir);
+    assert!(
+        args.windows(2)
+            .any(|pair| pair == ["--model", "from-the-environment"]),
+        "{args:?}"
+    );
+    assert!(!args.iter().any(|arg| arg == "from-the-file"), "{args:?}");
+    let _ = fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn a_list_variable_is_split_into_arguments() {
+    // `PI_COMMAND_NOT_FOUND_PI_ARGS` is the list setting's variable, and the
+    // generic variable layer must not also claim it as a plain string.
+    let dir = temp_dir("env-list");
+    let pi = fake_pi(&dir, &[r#"{"markdown":"note","source":"echo hi"}"#], false);
+    let output = run_with(
+        &dir,
+        &pi,
+        &[("PI_COMMAND_NOT_FOUND_PI_ARGS", "--one\ntwo words")],
+    );
+    assert!(output.status.success(), "{output:?}");
+    let args = pi_args(&dir);
+    assert!(args.iter().any(|arg| arg == "--one"), "{args:?}");
+    assert!(args.iter().any(|arg| arg == "two words"), "{args:?}");
+    let _ = fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn a_prompt_file_variable_is_split_on_colons() {
+    let dir = temp_dir("env-prompt");
+    let first = dir.join("first.md");
+    let second = dir.join("second.md");
+    fs::write(&first, "the first marker\n").unwrap();
+    fs::write(&second, "the second marker\n").unwrap();
+    let prompt = Command::new(BIN)
+        .args(["system-prompt"])
+        .env(
+            "PI_COMMAND_NOT_FOUND_SYSTEM_PROMPT_FILE",
+            format!("{}:{}", first.display(), second.display()),
+        )
+        .output()
+        .unwrap();
+    assert!(prompt.status.success(), "{prompt:?}");
+    let text = String::from_utf8_lossy(&prompt.stdout);
+    assert!(text.contains("the first marker"), "first prompt missing");
+    assert!(text.contains("the second marker"), "second prompt missing");
+    let _ = fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn config_prints_the_layered_settings() {
+    let dir = temp_dir("config-print");
+    let file = dir.join("config.json");
+    fs::write(&file, r#"{"model":"from-file","retries":7}"#).unwrap();
+    let output = Command::new(BIN)
+        .args(["config"])
+        .env("PI_COMMAND_NOT_FOUND_CONFIG", &file)
+        .env("PI_COMMAND_NOT_FOUND_THINKING", "from-environment")
+        .output()
+        .unwrap();
+    assert!(output.status.success(), "{output:?}");
+    let printed: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(printed["model"], "from-file", "the file's value");
+    assert_eq!(printed["retries"], 7, "the file's number stays a number");
+    assert_eq!(printed["thinking"], "from-environment", "the variable wins");
+    assert_eq!(
+        printed["pi"], "pi",
+        "an untouched setting shows its default"
+    );
+    assert!(printed["width"].is_null(), "a setting nobody made is null");
+    let _ = fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn the_call_s_own_variables_are_not_settings() {
+    // `PI_COMMAND_NOT_FOUND_SHELL` and `…_SESSION_ID` belong to the call, so
+    // the settings layer has to step over them rather than reject them.
+    let output = Command::new(BIN)
+        .args(["config"])
+        .env("PI_COMMAND_NOT_FOUND_SHELL", "bash")
+        .env("PI_COMMAND_NOT_FOUND_SESSION_ID", "a-session")
+        .output()
+        .unwrap();
+    assert!(output.status.success(), "{output:?}");
+    let printed: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert!(printed.get("shell").is_none(), "{printed}");
 }
 
 fn only_history(dir: &Path) -> PathBuf {

@@ -1,5 +1,6 @@
 mod ask;
 mod cli;
+mod config;
 mod markdown;
 mod pi;
 mod prompt;
@@ -16,6 +17,7 @@ use anyhow::{Context, Result, bail};
 use clap::Parser;
 
 use crate::cli::{Cli, Run};
+use crate::config::Config;
 use crate::protocol::Input;
 use crate::ui::Ui;
 
@@ -29,15 +31,27 @@ fn main() -> ExitCode {
         .without_time()
         .with_target(false)
         .init();
-    let result = match Cli::parse().command {
+    let cli = Cli::parse();
+    let config = match config::load(cli.config.as_deref()) {
+        Ok(config) => config,
+        Err(error) => {
+            eprintln!("command-not-found: {error:#}");
+            return ExitCode::from(1);
+        }
+    };
+    let result = match cli.command {
         cli::Command::SessionId => {
             println!("{}", session::random_id());
             Ok(0)
         }
-        cli::Command::SystemPrompt(args) => prompt::system_prompt(&args)
+        cli::Command::SystemPrompt => prompt::system_prompt(&config.system_prompt_file)
             .map(|prompt| println!("{prompt}"))
             .map(|()| 0),
-        cli::Command::Run(args) => run(&args),
+        cli::Command::Config => serde_json::to_string_pretty(&config)
+            .map(|settings| println!("{settings}"))
+            .map(|()| 0)
+            .context("cannot print the settings"),
+        cli::Command::Run(args) => run(&args, &config),
     };
     match result {
         Ok(status) => ExitCode::from(status.clamp(0, 255) as u8),
@@ -68,9 +82,9 @@ fn quote(arg: &str) -> String {
     }
 }
 
-fn run(args: &Run) -> Result<i32> {
+fn run(args: &Run, config: &Config) -> Result<i32> {
     signals::install()?;
-    let session = session::Session::resolve(args)?;
+    let session = session::Session::resolve(args, config)?;
     let command_line = command_line(&args.input);
     let input = Input {
         session_id: session.id.clone(),
@@ -85,10 +99,10 @@ fn run(args: &Run) -> Result<i32> {
         session_file: session.session_file().display().to_string(),
         state_dir: session.state.display().to_string(),
     };
-    let mut ui = Ui::new(args.tool_lines, args.width);
-    let system_prompt = prompt::system_prompt(&args.prompt)?;
-    let mut agent = pi::Agent::spawn(args, &session, &system_prompt)?;
-    let answer = match agent.ask(&input, args.retries, &mut ui) {
+    let mut ui = Ui::new(config.tool_lines, config.width);
+    let system_prompt = prompt::system_prompt(&config.system_prompt_file)?;
+    let mut agent = pi::Agent::spawn(config, &session, &system_prompt)?;
+    let answer = match agent.ask(&input, config.retries, &mut ui) {
         Ok(answer) => answer,
         Err(failure) => {
             if signals::interrupted() {
@@ -96,7 +110,7 @@ fn run(args: &Run) -> Result<i32> {
                 return Ok(130);
             }
             if let Some(text) = &failure.last_text {
-                markdown::render(text, args, &mut ui);
+                markdown::render(text, config, &mut ui);
             }
             ui.clear();
             bail!("{failure}");
@@ -104,7 +118,7 @@ fn run(args: &Run) -> Result<i32> {
     };
     let note = answer.markdown.unwrap_or_default();
     let source = answer.source.unwrap_or_default();
-    markdown::render(&note, args, &mut ui);
+    markdown::render(&note, config, &mut ui);
     session.start_history(&command_line, &note, &source);
     if signals::interrupted() {
         // A Ctrl-C during the note: nothing has been printed for the shell yet.
