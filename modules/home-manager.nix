@@ -12,6 +12,8 @@ let
   inherit (lib) mkIf mkEnableOption mkPackageOption;
 in
 {
+  imports = [ ./defaults.nix ];
+
   options.programs.pi-command-not-found-adapter = {
     enable = mkEnableOption "the pi command-not-found adapter";
     package = mkPackageOption pkgs "pi-command-not-found-adapter" { };
@@ -25,11 +27,6 @@ in
     # override individual values.
     home.packages = [ cfg.package ];
     xdg.configFile."pi-command-not-found/config.json".source = configFile;
-
-    # As on NixOS: ours is the hook, so the home-manager one stands down.
-    programs.command-not-found.enable = lib.mkDefault false;
-
-    programs.pi-command-not-found-adapter.systemPromptFile = lib.mkDefault (vars.nixPrompt cfg);
 
     programs.bash.initExtra = mkIf config.programs.bash.enable ''
       source ${cfg.package.passthru.shell.bash}

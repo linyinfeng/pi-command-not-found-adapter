@@ -98,8 +98,4 @@ in
   ) spec;
 
   configFile = pkgs: cfg: pkgs.writeText "pi-command-not-found.json" (builtins.toJSON (settings cfg));
-
-  # What the modules make `systemPromptFile` default to: on a machine this
-  # package manages, the Nix prompt is the right one.
-  nixPrompt = cfg: [ cfg.package.passthru.prompts.nix ];
 }

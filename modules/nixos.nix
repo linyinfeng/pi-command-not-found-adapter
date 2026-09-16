@@ -12,6 +12,8 @@ let
   inherit (lib) mkIf mkEnableOption mkPackageOption;
 in
 {
+  imports = [ ./defaults.nix ];
+
   options.programs.pi-command-not-found-adapter = {
     enable = mkEnableOption "the pi command-not-found adapter";
     package = mkPackageOption pkgs "pi-command-not-found-adapter" { };
@@ -25,13 +27,6 @@ in
     # (idempotent either way). A user's own ~/.config file layers on top.
     environment.systemPackages = [ cfg.package ];
     environment.etc."xdg/pi-command-not-found/config.json".source = configFile;
-
-    # This module is the handler: the stock nixpkgs hook would otherwise
-    # answer for the same shells (its own default is on when a database
-    # exists) and whichever was sourced last would win.
-    programs.command-not-found.enable = lib.mkDefault false;
-
-    programs.pi-command-not-found-adapter.systemPromptFile = lib.mkDefault (vars.nixPrompt cfg);
 
     programs.bash.interactiveShellInit = mkIf config.programs.bash.enable ''
       source ${cfg.package.passthru.shell.bash}
