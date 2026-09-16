@@ -50,7 +50,11 @@ which checks the shells enabled on its own layer and hooks those:
   # the package is not in nixpkgs; the overlay makes pkgs.* see it
   nixpkgs.overlays = [ inputs.pi-command-not-found-adapter.overlays.default ];
   imports = [ inputs.pi-command-not-found-adapter.nixosModules.default ];
-  programs.pi-command-not-found-adapter.enable = true;
+  programs.pi-command-not-found-adapter = {
+    enable = true;
+    model = "deepseek/deepseek-v4-flash";
+    thinking = "medium";
+  };
 }
 ```
 
@@ -66,59 +70,108 @@ which checks the shells enabled on its own layer and hooks those:
 When home-manager runs with the global pkgs (`useGlobalPkgs`), the overlay
 belongs on the NixOS side instead.
 
-The NixOS module sources the hook for bash and zsh (gated on
-`programs.bash.enable` / `programs.zsh.enable`); fish and nushell need no
-config there, they auto-load the hook from the package's data directories
-on `XDG_DATA_DIRS`. The home-manager module sources all four shells
-through their `programs.*` options, because home-manager keeps package
-data directories off `XDG_DATA_DIRS`. `programs.pi-command-not-found-adapter.package`
-defaults to `pkgs.pi-command-not-found-adapter` (provided by the overlay
-above); override it to use a different build.
+Both modules do the same thing per shell — source the hook — each gated on
+that shell being enabled there (`programs.bash.enable`,
+`programs.zsh.enable`, `programs.fish.enable`, `programs.nushell.enable`).
+NixOS uses the shells' `interactiveShellInit` and a generated nushell
+autoload, home-manager uses `initExtra`, `initContent`,
+`interactiveShellInit` and `extraConfig`.
+`programs.pi-command-not-found-adapter.package` defaults to
+`pkgs.pi-command-not-found-adapter` (provided by the overlay above);
+override it to use a different build.
+
+Every knob of `run` is an option: `pi`, `model`, `thinking`, `piArgs`,
+`sessionRoot`, `systemPromptFile`, `mcat`, `width`, `retries`,
+`toolLines`, `timeout`, `trace`. They are written to one JSON file — the
+NixOS module puts it in `/etc/xdg`, home-manager in the user's own config
+directory — so nothing at all is exported to the shell; [below](#run-options)
+is how that file layers with one the user writes. An unset option leaves
+the adapter's own default alone.
 
 ## CLI
 
 ```sh
-command-not-found-agent run [OPTIONS] -- <command> [args...]
-command-not-found-agent session-id
-command-not-found-agent system-prompt [OPTIONS]
+command-not-found-agent [--config <FILE>] run --shell <SHELL> [--session-id <ID>] -- <command> [args...]
+command-not-found-agent [--config <FILE>] session-id
+command-not-found-agent [--config <FILE>] system-prompt
+command-not-found-agent [--config <FILE>] config
 ```
 
-`run` is the handler: it takes the command line after `--` (options come
-before it) and prints the answer's `source` on stdout. The shell hooks in
-`shell/` call it, for example:
+`run` is the handler: it takes the command line after `--` and prints the
+answer's `source` on stdout; `--shell` is the one thing a hook has to say,
+and `--session-id` defaults to a random UUID. The hooks in `shell/` are the
+whole caller:
 
 ```sh
-command-not-found-agent run --shell bash --model deepseek/deepseek-v4-flash -- cowsay hi
+command-not-found-agent run --shell bash -- cowsay hi
 ```
 
 `system-prompt` prints exactly what `run` sends to pi — the base prompts,
 the adapter's session and notes context and the generated schemas — which
 is what makes prompt changes testable by hand.
 
+`config` prints the settings that came out of every layer, as JSON — the
+way to see what a shell will actually use.
+
 `session-id` prints a fresh UUID for a shell to export once at startup:
 
 ```sh
-export COMMAND_NOT_FOUND_SESSION_ID="$(command-not-found-agent session-id)"
+export PI_COMMAND_NOT_FOUND_SESSION_ID="$(command-not-found-agent session-id)"
 ```
 
-### `run` options
+### Settings
 
-| Option | Environment | Default |
+Everything else is a setting rather than an argument of the call: it is
+defined once and read from one place, the config file or the
+`PI_COMMAND_NOT_FOUND_*` variable of the same name.
+
+| Setting (config key) | Variable | Default |
 | --- | --- | --- |
-| `--pi <PATH>` | `COMMAND_NOT_FOUND_PI` | `pi` |
-| `--model <MODEL>` | `COMMAND_NOT_FOUND_MODEL` | pi default |
-| `--thinking <LEVEL>` | `COMMAND_NOT_FOUND_THINKING` | pi default |
-| `--pi-arg <ARG>` | `COMMAND_NOT_FOUND_PI_ARGS` | – |
-| `--session-id <ID>` | `COMMAND_NOT_FOUND_SESSION_ID` | random UUID |
-| `--shell <SHELL>` | `COMMAND_NOT_FOUND_SHELL` | required |
-| `--session-root <DIR>` | `COMMAND_NOT_FOUND_SESSION_ROOT` | `$XDG_STATE_HOME/pi-command-not-found-adapter/sessions` |
-| `--system-prompt-file <FILE>` | `COMMAND_NOT_FOUND_SYSTEM_PROMPT_FILE` | built-in `base.md` |
-| `--mcat <PATH>` | `COMMAND_NOT_FOUND_MCAT` | `mcat` |
-| `--width <COLUMNS>` | `COMMAND_NOT_FOUND_WIDTH` | terminal width |
-| `--retries <N>` | `COMMAND_NOT_FOUND_RETRIES` | `2` |
-| `--tool-lines <N>` | `COMMAND_NOT_FOUND_TOOL_LINES` | `5` |
-| `--timeout <SECONDS>` | `COMMAND_NOT_FOUND_TIMEOUT` | `600` |
-| `--trace <FILE>` | `COMMAND_NOT_FOUND_TRACE` | – |
+| `pi` | `PI_COMMAND_NOT_FOUND_PI` | `pi` |
+| `model` | `PI_COMMAND_NOT_FOUND_MODEL` | pi default |
+| `thinking` | `PI_COMMAND_NOT_FOUND_THINKING` | pi default |
+| `pi-args` | `PI_COMMAND_NOT_FOUND_PI_ARGS` | – |
+| `session-root` | `PI_COMMAND_NOT_FOUND_SESSION_ROOT` | `$XDG_STATE_HOME/pi-command-not-found-adapter/sessions` |
+| `system-prompt-file` | `PI_COMMAND_NOT_FOUND_SYSTEM_PROMPT_FILE` | built-in `base.md` |
+| `mcat` | `PI_COMMAND_NOT_FOUND_MCAT` | `mcat` |
+| `width` | `PI_COMMAND_NOT_FOUND_WIDTH` | terminal width |
+| `retries` | `PI_COMMAND_NOT_FOUND_RETRIES` | `2` |
+| `tool-lines` | `PI_COMMAND_NOT_FOUND_TOOL_LINES` | `5` |
+| `timeout` | `PI_COMMAND_NOT_FOUND_TIMEOUT` | `600` |
+| `trace` | `PI_COMMAND_NOT_FOUND_TRACE` | – |
+
+`pi` and `mcat` are runtime dependencies taken from `PATH` unless set; the
+package deliberately does not pin them.
+
+Two settings are lists: `pi-args` holds one argument per item (separated by
+newlines in its variable) and `system-prompt-file` one prompt file per item
+(separated by colons, like `PATH`).
+
+### Config file
+
+The settings also come from a JSON file, which is how a module or a user
+configures the adapter without the shell carrying anything:
+`$XDG_CONFIG_HOME/pi-command-not-found/config.json` (the user's, written by
+home-manager or by hand) and `/etc/xdg/pi-command-not-found/config.json`
+(the system's, written by the NixOS module). They are merged with the user
+file last, `--config <FILE>` merges one more over them, and
+`PI_COMMAND_NOT_FOUND_CONFIG` replaces the search with the single file it
+names. Keys are the setting names above, lists are lists, and an unknown
+key is an error:
+
+```json
+{
+  "model": "deepseek/deepseek-v4-flash",
+  "thinking": "medium",
+  "pi-args": ["--no-color"],
+  "system-prompt-file": ["/path/to/prompts/nix.md"],
+  "retries": 2
+}
+```
+
+So the order is the built-in defaults, the system file, the user file, the
+`--config` file, the `PI_COMMAND_NOT_FOUND_*` variables, and last the `run`
+arguments.
 
 ## Shell integration
 

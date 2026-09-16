@@ -86,6 +86,35 @@
 
       checks = eachSystem (pkgs: {
         inherit (self.packages.${pkgs.stdenv.hostPlatform.system}) pi-command-not-found-adapter;
+
+        # The modules hand the adapter a JSON config file, so the option names
+        # and the keys the adapter reads have to stay in step: this fails if a
+        # renamed option stops being understood.
+        config-file =
+          let
+            vars = import ./modules/options.nix { lib = pkgs.lib; };
+            prompt = pkgs.writeText "config-check-prompt.md" "a marker only this file has";
+            config = vars.configFile pkgs {
+              pi = null;
+              model = "some/model";
+              thinking = null;
+              piArgs = [ "--verbose" ];
+              sessionRoot = null;
+              systemPromptFile = [ prompt ];
+              mcat = null;
+              width = null;
+              retries = 3;
+              toolLines = null;
+              timeout = null;
+              trace = null;
+            };
+            agent = self.packages.${pkgs.stdenv.hostPlatform.system}.pi-command-not-found-adapter;
+          in
+          pkgs.runCommand "config-file" { } ''
+            ${agent}/bin/command-not-found-agent --config ${config} system-prompt > $out
+            grep -q "a marker only this file has" $out
+            grep -q "some/model" ${config}
+          '';
       });
     };
 }
