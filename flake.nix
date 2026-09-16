@@ -66,6 +66,7 @@
           };
           meta = {
             mainProgram = "command-not-found-agent";
+            license = pkgs.lib.licenses.mit;
             platforms = pkgs.lib.platforms.linux;
           };
         });

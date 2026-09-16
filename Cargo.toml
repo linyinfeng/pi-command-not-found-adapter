@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2024"
 rust-version = "1.85"
 description = "command-not-found handler that asks pi for a command and prints the shell code to run it"
+license = "MIT"
 publish = false
 
 [[bin]]
