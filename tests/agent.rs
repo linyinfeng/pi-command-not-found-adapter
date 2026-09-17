@@ -24,6 +24,7 @@ fn fake_pi(dir: &Path, turns: &[&str], stale: bool) -> PathBuf {
         });
         script.push_str(&format!("    echo '{}'\n", stale));
     }
+    script.push_str("    echo 'pi-stderr-marker' >&2\n");
     script.push_str("    echo '{\"type\":\"response\",\"command\":\"prompt\",\"success\":true}'\n");
     for (index, text) in turns.iter().enumerate() {
         let message = serde_json::json!({
@@ -249,6 +250,20 @@ fn a_prompt_file_variable_is_split_on_colons() {
     let text = String::from_utf8_lossy(&prompt.stdout);
     assert!(text.contains("the first marker"), "first prompt missing");
     assert!(text.contains("the second marker"), "second prompt missing");
+    let _ = fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn forwards_pi_s_own_diagnostics() {
+    // pi's stderr is piped and printed through the progress block: a child
+    // writing to the terminal behind the block is what used to leave stale
+    // spinner frames on screen.
+    let dir = temp_dir("stderr");
+    let pi = fake_pi(&dir, &[r#"{"markdown":"note","source":"echo hi"}"#], false);
+    let output = run(&dir, &pi);
+    assert!(output.status.success(), "{output:?}");
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("pi-stderr-marker"), "{stderr}");
     let _ = fs::remove_dir_all(&dir);
 }
 

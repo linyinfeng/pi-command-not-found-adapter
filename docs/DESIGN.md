@@ -51,7 +51,10 @@ Rejected alternatives:
 - **`indicatif`** (0.18): built for progress bars with its own draw target
   and refresh thread. The block here is six lines with a rolling window, a
   cloud counter and wide-character clipping; the `console` primitives are
-  enough, and it avoids a second layer that owns stderr. If the block grows
+  enough, and it avoids a second layer that owns stderr. pi's own stderr is
+  piped rather than inherited and printed through the block, so nothing else
+  writes to the terminal while the block is on screen — a child writing
+  behind its back moves the cursor and leaves stale frames. If the block grows
   into many independent bars, `indicatif`'s `MultiProgress` is the upgrade
   path.
 - **`crossterm`** (0.29): the right crate for raw-mode/event-reading TUIs.

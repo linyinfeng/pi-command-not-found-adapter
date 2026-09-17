@@ -94,6 +94,8 @@ impl Agent {
             let event = self.events().recv_timeout(TICK);
             match event {
                 Ok(Event::Acked) => started = true,
+                // Shown even before the ack: this is pi talking about itself.
+                Ok(Event::Stderr(line)) => ui.line(&line),
                 Ok(Event::Closed) => {
                     return Err(TurnError::Failed(format!(
                         "pi exited early ({})",
@@ -154,6 +156,8 @@ pub fn summary(args: &Value) -> String {
 pub enum Event {
     /// `pi` acknowledged the prompt; events before this are not this turn's content.
     Acked,
+    /// A line pi wrote to its stderr, to show above the progress block.
+    Stderr(String),
     Text(String),
     Error(String),
     Tool {
