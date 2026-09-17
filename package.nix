@@ -67,6 +67,6 @@ rustPlatform.buildRustPackage (finalAttrs: {
     license = lib.licenses.mit;
     maintainers = with lib.maintainers; [ yinfeng ];
     mainProgram = "command-not-found-agent";
-    platforms = lib.platforms.linux;
+    platforms = lib.platforms.unix;
   };
 })

@@ -11,6 +11,7 @@
       systems = [
         "x86_64-linux"
         "aarch64-linux"
+        "aarch64-darwin"
       ];
       mkPkgs = system: import nixpkgs { inherit system; };
       mkPackages =
