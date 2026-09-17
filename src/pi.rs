@@ -14,6 +14,7 @@ use tracing::{debug, warn};
 use crate::ask::Event;
 use crate::config::Config;
 use crate::session::Session;
+use crate::ui::printable;
 
 /// A running `pi --mode rpc` process.
 pub struct Agent {
@@ -51,14 +52,24 @@ impl Agent {
         let mut child = command
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
-            .stderr(Stdio::inherit())
+            // Not inherited: the progress block owns the cursor, and a child
+            // writing to the same terminal behind its back is what leaves
+            // stale frames on screen. Its lines travel through the block.
+            .stderr(Stdio::piped())
             .spawn()
             .with_context(|| format!("failed to start {}", config.pi))?;
         let stdin = child.stdin.take().context("pi stdin missing")?;
         let stdout = child.stdout.take().context("pi stdout missing")?;
+        let stderr = child.stderr.take().context("pi stderr missing")?;
         let stdin = Arc::new(Mutex::new(stdin));
         let (sender, events) = channel();
-        let reader = spawn_reader(stdout, Arc::clone(&stdin), sender, config.trace.clone());
+        let reader = spawn_reader(
+            stdout,
+            Arc::clone(&stdin),
+            sender.clone(),
+            config.trace.clone(),
+        );
+        spawn_stderr(stderr, sender);
         Ok(Self {
             child,
             stdin,
@@ -113,6 +124,19 @@ impl Drop for Agent {
             let _ = reader.join();
         }
     }
+}
+
+/// Forward pi's own diagnostics, so they are visible without the child
+/// writing to the terminal the progress block is drawing on.
+fn spawn_stderr(stderr: std::process::ChildStderr, events: std::sync::mpsc::Sender<Event>) {
+    thread::spawn(move || {
+        for line in BufReader::new(stderr).lines() {
+            let Ok(line) = line else { break };
+            if events.send(Event::Stderr(printable(&line))).is_err() {
+                break;
+            }
+        }
+    });
 }
 
 fn spawn_reader(
