@@ -32,6 +32,7 @@ impl Session {
             id
         };
         let state = dirs::state_dir()
+            .or_else(|| dirs::home_dir().map(|home| home.join(".local/state")))
             .context("cannot determine the XDG state directory")?
             .join("pi-command-not-found-adapter");
         let root = config
