@@ -1,7 +1,7 @@
 use std::collections::VecDeque;
 use std::io::Write;
 
-use console::{Term, measure_text_width};
+use console::{Term, measure_text_width, style};
 
 const FRAMES: [&str; 10] = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 const CLOUD: &str = "💭";
@@ -95,6 +95,13 @@ impl Ui {
         self.plain(text);
     }
 
+    /// A line pi wrote to its own stderr, so the child's voice is not read as
+    /// ours.
+    pub fn stderr(&mut self, text: &str) {
+        self.clear();
+        self.plain(&diagnostic(text, self.tty));
+    }
+
     pub fn rule(&mut self) {
         let rule = "─".repeat(self.block_width);
         self.line(&rule);
@@ -163,6 +170,17 @@ impl Ui {
     }
 }
 
+/// 16-colour yellow rather than a fixed orange: the terminal's own palette
+/// picks the amber that reads on its background, dark or light. Styled only
+/// when stderr is a terminal, so a redirected one stays plain text.
+fn diagnostic(text: &str, tty: bool) -> String {
+    if tty {
+        style(text).yellow().force_styling(true).to_string()
+    } else {
+        text.to_string()
+    }
+}
+
 /// Drop control characters that would corrupt the terminal.
 pub fn printable(text: &str) -> String {
     text.chars()
@@ -188,6 +206,12 @@ mod tests {
         );
         let wide = "你好世界你好世界你好世界你好世界";
         assert!(measure_text_width(&ui.clip(wide)) <= 20);
+    }
+
+    #[test]
+    fn colours_pi_s_stderr_with_the_sixteen_colour_yellow() {
+        assert_eq!(diagnostic("pi said", true), "\u{1b}[33mpi said\u{1b}[0m");
+        assert_eq!(diagnostic("pi said", false), "pi said");
     }
 
     #[test]

@@ -95,7 +95,7 @@ impl Agent {
             match event {
                 Ok(Event::Acked) => started = true,
                 // Shown even before the ack: this is pi talking about itself.
-                Ok(Event::Stderr(line)) => ui.line(&line),
+                Ok(Event::Stderr(line)) => ui.stderr(&line),
                 Ok(Event::Closed) => {
                     return Err(TurnError::Failed(format!(
                         "pi exited early ({})",
