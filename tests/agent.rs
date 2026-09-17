@@ -268,6 +268,36 @@ fn forwards_pi_s_own_diagnostics() {
 }
 
 #[test]
+fn hands_pi_the_prompt_not_the_logged_placeholder() {
+    // The logged command line abbreviates the prompt; the child still has to
+    // get the text, or every ask silently changes.
+    let dir = temp_dir("prompt-arg");
+    let file = dir.join("prompt.md");
+    fs::write(&file, "the prompt marker\n").unwrap();
+    let pi = fake_pi(&dir, &[r#"{"markdown":"note","source":"echo hi"}"#], false);
+    let output = run_with(
+        &dir,
+        &pi,
+        &[(
+            "PI_COMMAND_NOT_FOUND_SYSTEM_PROMPT_FILE",
+            &file.display().to_string(),
+        )],
+    );
+    assert!(output.status.success(), "{output:?}");
+    let args = pi_args(&dir);
+    let at = args
+        .iter()
+        .position(|arg| arg == "--append-system-prompt")
+        .unwrap_or_else(|| panic!("--append-system-prompt missing: {args:?}"));
+    assert_ne!(args[at + 1], "<system prompt>", "{args:?}");
+    assert!(
+        args[at + 1..].iter().any(|arg| arg == "the prompt marker"),
+        "{args:?}"
+    );
+    let _ = fs::remove_dir_all(&dir);
+}
+
+#[test]
 fn config_prints_the_layered_settings() {
     let dir = temp_dir("config-print");
     let file = dir.join("config.json");

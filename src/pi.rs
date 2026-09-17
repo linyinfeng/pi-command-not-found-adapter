@@ -16,6 +16,11 @@ use crate::config::Config;
 use crate::session::Session;
 use crate::ui::printable;
 
+/// Stands in for the system prompt in the logged command line: the prompt is
+/// kilobytes of text, and the log is for reproducing the invocation, not for
+/// reading it back. The real text is substituted again before the spawn.
+const PROMPT_PLACEHOLDER: &str = "<system prompt>";
+
 /// A running `pi --mode rpc` process.
 pub struct Agent {
     child: Child,
@@ -27,28 +32,37 @@ pub struct Agent {
 
 impl Agent {
     pub fn spawn(config: &Config, session: &Session, system_prompt: &str) -> Result<Self> {
-        let mut command = Command::new(&config.pi);
-        command
-            .arg("--mode")
-            .arg("rpc")
-            .arg("--no-context-files")
-            .arg("--session")
-            .arg(session.session_file())
-            .arg("--append-system-prompt")
-            .arg(system_prompt);
+        let mut argv = vec![
+            "--mode".to_string(),
+            "rpc".to_string(),
+            "--no-context-files".to_string(),
+            "--session".to_string(),
+            session.session_file().display().to_string(),
+            "--append-system-prompt".to_string(),
+            PROMPT_PLACEHOLDER.to_string(),
+        ];
         if let Some(model) = &config.model {
-            command.arg("--model").arg(model);
+            argv.extend(["--model".to_string(), model.clone()]);
         }
         if let Some(thinking) = &config.thinking {
-            command.arg("--thinking").arg(thinking);
+            argv.extend(["--thinking".to_string(), thinking.clone()]);
         }
-        command.args(&config.pi_args);
+        argv.extend(config.pi_args.iter().cloned());
+        // Logged before the spawn: a child that dies on startup or hangs still
+        // says which command line produced it. `RUST_LOG=debug` shows it.
         debug!(
-            "{} --mode rpc --session {} (model {:?})",
-            config.pi,
-            session.session_file().display(),
-            config.model
+            "{} {}",
+            crate::quote(&config.pi),
+            crate::command_line(&argv)
         );
+        let mut command = Command::new(&config.pi);
+        command.args(argv.iter().map(|arg| {
+            if arg == PROMPT_PLACEHOLDER {
+                system_prompt
+            } else {
+                arg.as_str()
+            }
+        }));
         let mut child = command
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
